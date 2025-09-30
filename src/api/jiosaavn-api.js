@@ -22,7 +22,7 @@ module.exports = {
   
   // --- Song, Album, Playlist, Artist Details ---
   getSong: (id) => apiFetch(`/songs/${id}`),
-  getAlbum: (id) => apiFetch(`/albums/${id}`),
+  getAlbum: (id) => apiFetch(`/albums?id=${id}&songs=true`),
   getPlaylist: (id) => apiFetch(`/playlists/${id}`),
   getArtist: (id) => apiFetch(`/artists/${id}`),
 

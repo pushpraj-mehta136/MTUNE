@@ -50,7 +50,8 @@ const Musify = {
     getSongDetails: (id) => Musify.api._fetch(`/songs/${id}`),
     getPlaylistDetails: (id) => Musify.api._fetch(`/playlists/${id}`),
     getAlbumDetails: (id) => Musify.api._fetch(`/albums?id=${id}`),
-    getArtistDetails: (id) => Musify.api._fetch(`/artists/${id}`),
+    getArtistDetails: (id) => Musify.api._fetch(`/artists?id=${id}`),
+    getArtistSongs: (id, page) => Musify.api._fetch(`/artists/${id}/songs?page=${page}&limit=50`),
     getSongSuggestions: (songId, limit = 10) => Musify.api._fetch(`/songs/${songId}/suggestions?limit=${limit}`),
     getCharts: () => Musify.api._fetch('/charts'),
     getNewReleases: () => Musify.api._fetch('/modules?language=hindi,english'),
@@ -80,29 +81,14 @@ const Musify = {
       contentSections: document.querySelectorAll('.content-section'),
       // Discover page sections
       recommendedSongs: document.getElementById('recommendedSongs'),
-      recommendedPlaylists: document.getElementById('recommendedPlaylists'),
+      recommendedAlbums: document.getElementById('recommendedAlbums'),
       recommendedArtists: document.getElementById('recommendedArtists'),
       songList: document.getElementById('songList'),
       albumSearchResults: document.getElementById('albumSearchResults'),
       artistSearchResults: document.getElementById('artistSearchResults'),
       userPlaylists: document.getElementById('userPlaylists'),
       historyList: document.getElementById('historyList'),
-      queueSidebar: document.getElementById('queueSidebar'),
-      queueBtn: document.getElementById('queueBtn'),
-      queueListContainer: document.getElementById('queueListContainer'),
       savedPlaylistsContainer: document.getElementById('savedPlaylistsContainer'),
-      nowPlayingScreen: document.getElementById('nowPlayingScreen'),
-      nowPlayingArt: document.getElementById('nowPlayingArt'),
-      nowPlayingTitle: document.getElementById('nowPlayingTitle'),
-      nowPlayingArtist: document.getElementById('nowPlayingArtist'),
-      nowPlayingProgressBar: document.getElementById('nowPlayingProgressBar'),
-      nowPlayingCurrentTime: document.getElementById('nowPlayingCurrentTime'),
-      nowPlayingTotalDuration: document.getElementById('nowPlayingTotalDuration'),
-      nowPlayingControls: document.getElementById('nowPlayingControls'),
-      nowPlayingPlayPauseIcon: document.getElementById('nowPlayingPlayPauseIcon'),
-      nowPlayingShuffleBtn: document.getElementById('nowPlayingShuffleBtn'),
-      nowPlayingRepeatBtn: document.getElementById('nowPlayingRepeatBtn'),
-      nowPlayingRepeatIcon: document.getElementById('nowPlayingRepeatIcon'),
       favouriteSongsList: document.getElementById('favouriteSongsList'),
       likeBtn: document.getElementById('likeBtn'),
       timelineList: document.getElementById('timelineList'),
@@ -118,6 +104,7 @@ const Musify = {
       dynamicThemeToggle: document.getElementById('dynamicThemeToggle'),
       repeatIcon: document.getElementById('repeatIcon'),
     };
+    this.ui.volumeSlider = document.getElementById('volumeSlider');
 
     // Bind event listeners
     this.ui.audioPlayer.addEventListener('timeupdate', () => this.player.updateProgressBar());
@@ -130,8 +117,8 @@ const Musify = {
     this.ui.searchBar.addEventListener('keypress', e => { if (e.key === "Enter") this.navigation.triggerSearch(); });
     this.ui.searchBar.addEventListener('input', () => this.utils.debounce(this.navigation.showSearchSuggestions, 300)());
     document.addEventListener('click', (e) => { if (!e.target.closest('.search-input-container')) this.ui.searchSuggestions.classList.remove('active'); });
-    this.ui.nowPlayingProgressBar.addEventListener('input', () => this.player.seek(true));
     window.addEventListener('beforeunload', () => this.utils.savePlaybackState());
+    this.ui.volumeSlider.addEventListener('input', (e) => this.player.setVolume(e.target.value));
     this.ui.audioQuality.addEventListener('change', (e) => this.utils.setAudioQuality(e.target.value));
     document.querySelectorAll('.accordion-header').forEach(header => {
         header.addEventListener('click', () => {
@@ -147,15 +134,32 @@ const Musify = {
             this.utils.handleInfiniteScroll(e.target);
         }
     });
+    // Add ripple effect to all buttons
+    document.addEventListener('click', this.utils.applyRippleEffect);
+
 
     // Load initial state
     this.utils.loadTheme();
     this.utils.loadState();
     this.utils.applyPlaybackState();
+    // After loading state and applying playback state, ensure buttons reflect state
+    this.ui.shuffleBtn.classList.toggle('active', this.state.isShuffle);
+    this.ui.repeatBtn.classList.toggle('active', this.state.repeatMode !== 'off');
+    this.ui.repeatIcon.className = this.state.repeatMode === 'one' ? 'fas fa-1' : 'fas fa-repeat';
+    if (!this.state.songQueue[this.state.currentSongIndex]) {
+        this.ui.playPauseIcon.className = 'fas fa-play';
+    }
     this.navigation.showSection('discover');
   },
 
   render: {
+    _decode(text) {
+        if (typeof text !== 'string') return text;
+        // This prevents decoding from creating unwanted HTML elements.
+        const textarea = document.createElement('textarea');
+        textarea.innerHTML = text;
+        return textarea.value;
+    },
     _escape(text) {
       const div = document.createElement('div');
       div.textContent = text;
@@ -164,6 +168,30 @@ const Musify = {
     _getImageUrl(imageArray) {
       return imageArray?.[2]?.url || imageArray?.[1]?.url || imageArray?.[0]?.url || 'default_cover.jpg';
     }, // Added missing comma
+    discoverCard(item) {
+        const div = document.createElement('div');
+        div.className = 'discover-card';
+        const type = item.type || (item.songCount ? 'playlist' : 'artist');
+        let onclickAction = '';
+        if (type === 'song') {
+            onclickAction = `Musify.player.playSongFromCard(event, '${item.id}')`;
+        } else if (type === 'playlist' || type === 'album') {
+            onclickAction = (type === 'album') 
+                ? `Musify.navigation.showAlbum('${item.id}')` 
+                : `Musify.navigation.showPlaylist(event, '${item.id}', false)`;
+        } else if (type === 'artist') {
+            onclickAction = `Musify.navigation.showArtist(event, '${item.id}')`;
+        }
+
+        div.innerHTML = `
+            <div class="discover-card-art" onclick="${onclickAction}">
+                <img src="${this._getImageUrl(item.image)}" alt="${this._decode(item.name || item.title)}" loading="lazy" onerror="this.src='default_cover.jpg'"/>
+                <button class="play-btn"><i class="fas fa-play"></i></button>
+            </div>
+            <strong><span>${this._decode(item.name || item.title)}</span></strong>
+            <small>${this._decode(item.primaryArtists || item.description || item.subtitle || 'Music')}</small>`;
+        return div;
+    },
     _renderMessage(container, message, type = 'loading') {
       container.innerHTML = `<div class="${type}">${message}</div>`;
     },
@@ -173,16 +201,16 @@ const Musify = {
 
       const img = document.createElement('img');
       img.src = this._getImageUrl(song.image);
-      img.alt = this._escape(song.title);
+      img.alt = this._decode(song.title);
       img.onerror = () => { img.src = 'default_cover.jpg'; };
 
       const infoDiv = document.createElement('div');
       const strong = document.createElement('strong');
       const span = document.createElement('span');
-      span.textContent = this._escape(song.name || song.title);
+      span.textContent = this._decode(song.name || song.title);
       strong.appendChild(span);
       const small = document.createElement('small');
-      small.textContent = this._escape(song.primaryArtists || song.artists?.primary?.map(a => a.name).join(', ') || 'Unknown Artist');
+      small.textContent = this._decode(song.primaryArtists || song.artists?.primary?.map(a => a.name).join(', ') || 'Unknown Artist');
       infoDiv.append(strong, small);
 
       const durationSpan = document.createElement('span');
@@ -190,9 +218,8 @@ const Musify = {
       durationSpan.textContent = Musify.player.formatTime(song.duration || 0);
       const optionsBtn = this._createButton('options-btn', `Musify.utils.showSongContextMenu(event, '${song.id}')`, 'More options', 'fas fa-ellipsis-v');
       const playBtn = this._createButton('play-btn', `Musify.player.playSongFromCard(event, '${song.id}')`, `Play ${song.title}`, 'fas fa-play');
-      const removeFromQueueBtn = this._createButton('remove-from-queue-btn', `Musify.utils.removeFromQueue('${song.id}')`, 'Remove from queue', 'fas fa-times');
 
-      div.append(img, infoDiv, durationSpan, optionsBtn, playBtn, removeFromQueueBtn);
+      div.append(img, infoDiv, durationSpan, optionsBtn, playBtn);
       return div;
     },
     playlistCard(pl) {
@@ -203,11 +230,11 @@ const Musify = {
       const isNewUserPlaylist = pl.id.startsWith('user_') && (!pl.songs || pl.songs.length === 0);
       const imageContent = isNewUserPlaylist
         ? `<div class="playlist-placeholder"><i class="fas fa-music"></i></div>`
-        : `<img src="${this._getImageUrl(pl.image)}" alt="${this._escape(pl.name || pl.title)}" onerror="this.src='default_cover.jpg'" loading="lazy"/>`;
+        : `<img src="${this._getImageUrl(pl.image)}" alt="${this._decode(pl.name || pl.title)}" onerror="this.src='default_cover.jpg'" loading="lazy"/>`;
 
       div.innerHTML = ` 
         ${imageContent}
-        <div><strong><span>${this._escape(pl.name || pl.title)}</span></strong></div>
+        <div><strong><span>${this._decode(pl.name || pl.title)}</span></strong></div>
         <button onclick="${
           pl.id.startsWith('user_')
             ? `Musify.utils.showPlaylistContextMenu(event, '${pl.id}')`
@@ -222,10 +249,10 @@ const Musify = {
     albumCard(album) {
       const div = document.createElement('div');
       div.className = 'album';
-      div.innerHTML = ` 
-        <img src="${this._getImageUrl(album.image)}" alt="${this._escape(album.name || album.title)}" onerror="this.src='default_cover.jpg'" loading="lazy"/>
-        <div><strong><span>${this._escape(album.name || album.title)}</span></strong></div>
-        <small>${this._escape(album.primaryArtists || 'Various Artists')}</small>
+      div.innerHTML = `
+        <img src="${this._getImageUrl(album.image)}" alt="${this._decode(album.name || album.title)}" onerror="this.src='default_cover.jpg'" loading="lazy"/>
+        <div><strong><span>${this._decode(album.name || album.title)}</span></strong></div>
+        <small>${this._decode(album.primaryArtists || 'Various Artists')}</small>
         <button onclick="Musify.navigation.showAlbum('${album.id}')" title="View Album"><i class="fas fa-info-circle"></i></button>
       `;
       return div;
@@ -234,8 +261,8 @@ const Musify = {
       const div = document.createElement('div');
       div.className = 'artist';
       div.innerHTML = `
-        <img src="${this._getImageUrl(artist.image)}" alt="${this._escape(artist.title)}" onerror="this.src='default_artist.jpg'" loading="lazy"/>
-        <div><strong><span>${this._escape(artist.name || artist.title)}</span></strong><small>${artist.description || artist.role || 'Artist'}</small></div>
+        <img src="${this._getImageUrl(artist.image)}" alt="${this._decode(artist.title)}" onerror="this.src='default_artist.jpg'" loading="lazy"/>
+        <div><strong><span>${this._decode(artist.name || artist.title)}</span></strong><small>${this._decode(artist.description || artist.role || 'Artist')}</small></div>
         <button onclick="Musify.navigation.showArtist(event, '${artist.id}')" title="View artist"><i class="fas fa-info-circle"></i></button>
       `;
       div.onclick = (e) => Musify.navigation.showArtist(e, artist.id);
@@ -283,56 +310,85 @@ const Musify = {
     },
     playlistHeader(playlist) {
         const header = Musify.ui.playlistDetailsHeader;
+        const description = this._decode(playlist.description || '');
         header.innerHTML = `
-            <button class="nav-btn" onclick="Musify.navigation.goBack()"><i class="fas fa-arrow-left"></i> Back</button>
-            <div class="playlist-header-container">
-                <img src="${this._getImageUrl(playlist.image)}" alt="${this._escape(playlist.name)}"/>
-                <div class="playlist-header-text">
-                    <h1>${this._escape(playlist.name)}</h1>
-                    <p>${playlist.songCount} songs &bull; ${playlist.followerCount} followers</p>
-                    <p class="description">${this._escape(playlist.description || '')}</p>
-                    <button class="nav-btn active" onclick="Musify.player.playFromQueue(Musify.state.songQueue[0].id)"><i class="fas fa-play"></i> Play All</button>
+            <div class="details-header-content">
+                <img src="${this._getImageUrl(playlist.image)}" alt="${this._decode(playlist.name)}"/>
+                <div class="details-header-text">
+                    <span class="details-type">Playlist</span>
+                    <h1>${this._decode(playlist.name)}</h1>
+                    <p class="description">${description}</p>
+                    <p class="meta-info">${playlist.songCount} songs &bull; ${playlist.followerCount} followers</p>
                 </div>
+            </div>
+            <div class="details-header-actions">
+                <button class="nav-btn active" onclick="Musify.player.playFromQueue(Musify.state.songQueue[0].id)"><i class="fas fa-play"></i> Play All</button>
             </div>
         `;
     },
     albumHeader(album) {
         const header = Musify.ui.albumDetailsHeader;
         header.innerHTML = `
-            <button class="nav-btn" onclick="Musify.navigation.goBack()"><i class="fas fa-arrow-left"></i> Back</button>
-            <div class="playlist-header-container">
-                <img src="${this._getImageUrl(album.image)}" alt="${this._escape(album.name)}"/>
-                <div class="playlist-header-text">
-                    <h1>${this._escape(album.name)}</h1>
-                    <p>${album.songCount} songs &bull; Released: ${album.year}</p>
-                    <p>${this._escape(album.artists?.primary?.map(a => a.name).join(', ') || '')}</p>
-                    <button class="nav-btn active" onclick="Musify.player.playFromQueue(Musify.state.songQueue[0].id)"><i class="fas fa-play"></i> Play All</button>
+            <div class="details-header-content">
+                <img src="${this._getImageUrl(album.image)}" alt="${this._decode(album.name)}"/>
+                <div class="details-header-text">
+                    <span class="details-type">Album</span>
+                    <h1>${this._decode(album.name)}</h1>
+                    <p class="meta-info">${this._decode(album.artists?.primary?.map(a => a.name).join(', ') || '')} &bull; ${album.songCount} songs &bull; ${album.year}</p>
                 </div>
             </div>
+            <div class="details-header-actions">
+                <button class="nav-btn active" onclick="Musify.player.playFromQueue(Musify.state.songQueue[0].id)"><i class="fas fa-play"></i> Play All</button>
+            </div>
         `;
+        // Add show more/less functionality
+        const description = header.querySelector('.description.expandable');
+        if (description && description.scrollHeight > description.clientHeight) {
+            const showMoreBtn = document.createElement('button');
+            showMoreBtn.className = 'show-more-btn';
+            showMoreBtn.textContent = 'Show More';
+            showMoreBtn.onclick = () => {
+                description.classList.toggle('expanded');
+                showMoreBtn.textContent = description.classList.contains('expanded') ? 'Show Less' : 'Show More';
+            };
+            description.after(showMoreBtn);
+        }
     },
     artistHeader(artist) {
         const header = Musify.ui.artistDetailsHeader;
         header.innerHTML = `
-            <button class="nav-btn" onclick="Musify.navigation.goBack()"><i class="fas fa-arrow-left"></i> Back</button>
-            <div class="playlist-header-container">
-                <img src="${this._getImageUrl(artist.image)}" alt="${this._escape(artist.name)}" style="border-radius: 50%;"/>
-                <div class="playlist-header-text">
-                    <h1>${this._escape(artist.name)}</h1>
-                    <p>${artist.fanCount} followers</p>
-                    <p class="description">${artist.bio ? this._escape(artist.bio[0]?.text || '') : ''}</p>
-                    <button class="nav-btn active" onclick="Musify.player.playFromQueue(Musify.state.songQueue[0].id)"><i class="fas fa-play"></i> Play Top Songs</button>
+            <div class="details-header-content">
+                <img src="${this._getImageUrl(artist.image)}" alt="${this._decode(artist.name)}" style="border-radius: 50%;"/>
+                <div class="details-header-text">
+                    <span class="details-type">Artist</span>
+                    <h1>${this._decode(artist.name)}</h1>
+                    <p class="meta-info">${artist.fanCount} followers</p>
+                    <p class="description expandable">${artist.bio ? this._decode(artist.bio[0]?.text || '') : ''}</p>
                 </div>
             </div>
+            <div class="details-header-actions">
+                <button class="nav-btn active" onclick="Musify.player.playFromQueue(Musify.state.songQueue[0].id)"><i class="fas fa-play"></i> Play Top Songs</button>
+            </div>
         `;
-    }
+        const description = header.querySelector('.description.expandable');
+        if (description && description.scrollHeight > description.clientHeight) {
+            const showMoreBtn = document.createElement('button');
+            showMoreBtn.className = 'show-more-btn';
+            showMoreBtn.textContent = 'Show More';
+            showMoreBtn.onclick = () => {
+                description.classList.toggle('expanded');
+                showMoreBtn.textContent = description.classList.contains('expanded') ? 'Show Less' : 'Show More';
+            };
+            description.after(showMoreBtn);
+        }
+    },
   },
 
   player: {
     playSongFromCard(event, songId) {
         event.stopPropagation(); // Prevent card's parent click events
-        const card = event.target.closest('.song');
-        if (!card) return;
+        const card = event.target.closest('.song, .discover-card');
+        if (!card) return; // Exit if the click wasn't on a song or discover card
         const songListContainer = card.parentElement;
 
         // Determine the source list of songs
@@ -395,8 +451,6 @@ const Musify = {
 
       const songDetails = await this._getPlayableSong(song);
 
-      const allPlayIcons = [Musify.ui.playPauseIcon, Musify.ui.mobilePlayPauseIcon, Musify.ui.nowPlayingPlayPauseIcon];
-
       if (songDetails && Array.isArray(songDetails.downloadUrl) && songDetails.downloadUrl.length > 0) {
         const quality = Musify.state.audioQuality;
         const bestQuality = songDetails.downloadUrl.find(u => u.quality === quality) || songDetails.downloadUrl.at(-1);
@@ -406,36 +460,36 @@ const Musify = {
         try {
           await Musify.ui.audioPlayer.play();
           state.isPlaying = true;
-          allPlayIcons.forEach(icon => icon.className = 'fas fa-pause');
+          Musify.ui.playPauseIcon.className = 'fas fa-pause';
           Musify.ui.likeBtn.classList.toggle('active', Musify.utils.isFavourited(song.id));
-          if (Musify.ui.queueSidebar.classList.contains('active')) Musify.navigation.loadQueue(); // Refresh queue view
           this.addToHistory(songDetails);
           this.updateMediaSession(songDetails);
         } catch (e) {
           state.isPlaying = false;
-          allPlayIcons.forEach(icon => icon.className = 'fas fa-play');
+          Musify.ui.playPauseIcon.className = 'fas fa-play';
           console.error("Playback failed", e);
         }
       } else {
-        allPlayIcons.forEach(icon => icon.className = 'fas fa-play');
+        Musify.ui.playPauseIcon.className = 'fas fa-play';
         console.error('Song object from queue is missing downloadUrl:', songDetails);
         Musify.utils.showNotification(`Unable to get a playable link for "${song.name || song.title}".`, 'error');
       }
     },
     updateInfo(song) {
-      Musify.ui.currentSongTitle.textContent = song.name || song.title || 'Unknown Title';
-      Musify.ui.currentSongArtist.textContent = song.primaryArtists || song.artists?.primary?.map(a => a.name).join(', ') || 'Unknown Artist';
+      Musify.ui.currentSongTitle.textContent = Musify.render._decode(song.name || song.title || 'Unknown Title');
+      Musify.ui.currentSongArtist.textContent = Musify.render._decode(song.primaryArtists || song.artists?.primary?.map(a => a.name).join(', ') || 'Unknown Artist');
       Musify.ui.currentSongImg.src = Musify.render._getImageUrl(song.image);
       Musify.ui.likeBtn.classList.toggle('active', Musify.utils.isFavourited(song.id));
-      if (Musify.ui.queueSidebar.classList.contains('active')) Musify.navigation.loadQueue(); // Refresh queue view
+      Musify.ui.playPauseIcon.className = Musify.state.isPlaying ? 'fas fa-pause' : 'fas fa-play';
+      Musify.ui.mobilePlayPauseIcon.className = Musify.state.isPlaying ? 'fas fa-pause' : 'fas fa-play';
       Musify.utils.updatePlayerTheme(Musify.render._getImageUrl(song.image));
     },
     updateMediaSession(song) {
         if ('mediaSession' in navigator) {
             navigator.mediaSession.metadata = new MediaMetadata({
-                title: song.name || song.title,
-                artist: song.primaryArtists || song.artists?.primary?.map(a => a.name).join(', ') || 'Unknown Artist',
-                album: song.album?.name || '',
+                title: Musify.render._decode(song.name || song.title),
+                artist: Musify.render._decode(song.primaryArtists || song.artists?.primary?.map(a => a.name).join(', ') || 'Unknown Artist'),
+                album: Musify.render._decode(song.album?.name || ''),
                 artwork: song.image.map(img => ({ src: img.url, sizes: `${img.quality.split('x')[0]}x${img.quality.split('x')[1]}`, type: 'image/jpeg' }))
             });
 
@@ -446,8 +500,8 @@ const Musify = {
         }
     },
     togglePlayPause() {
-      const { audioPlayer, playPauseIcon, mobilePlayPauseIcon, nowPlayingPlayPauseIcon } = Musify.ui;
-      const allPlayIcons = [playPauseIcon, mobilePlayPauseIcon, nowPlayingPlayPauseIcon];
+      const { audioPlayer, playPauseIcon, mobilePlayPauseIcon } = Musify.ui;
+      const allPlayIcons = [playPauseIcon, mobilePlayPauseIcon];
       if (!audioPlayer.src && Musify.state.songQueue.length > 0) {
         // visualizer.init() is now called in playCurrent to be more robust
         Musify.state.currentSongIndex = 0;
@@ -455,15 +509,19 @@ const Musify = {
         return;
       }
       if (Musify.state.isPlaying) {
-        audioPlayer.pause();
-        allPlayIcons.forEach(icon => icon.classList.replace('fa-pause', 'fa-play'));
+        audioPlayer.pause(); // This will trigger the 'pause' action handler in mediaSession
+        allPlayIcons.forEach(icon => icon && icon.classList.replace('fa-pause', 'fa-play')); // Update UI icon
       } else {
-        audioPlayer.play();
-        allPlayIcons.forEach(icon => icon.classList.replace('fa-play', 'fa-pause'));
+        audioPlayer.play(); // This will trigger the 'play' action handler in mediaSession
+        allPlayIcons.forEach(icon => icon && icon.classList.replace('fa-play', 'fa-pause')); // Update UI icon
       }
       Musify.state.isPlaying = !Musify.state.isPlaying;
     },
     next() {
+      // Mobile-only: if player is compact, show next/prev buttons briefly on song change
+      if (window.innerWidth <= 768) {
+          // this.showMobileControlsTemporarily(); // Removed as this function no longer exists
+      }
       const state = Musify.state;
       if (state.songQueue.length === 0) return;
       if (state.isShuffle) {
@@ -474,6 +532,9 @@ const Musify = {
       this.playCurrent();
     },
     prev() {
+      if (window.innerWidth <= 768) {
+          // this.showMobileControlsTemporarily(); // Removed as this function no longer exists
+      }
       const state = Musify.state;
       if (state.songQueue.length === 0) return;
       if (state.isShuffle) {
@@ -486,52 +547,46 @@ const Musify = {
     toggleShuffle() {
       Musify.state.isShuffle = !Musify.state.isShuffle;
       Musify.ui.shuffleBtn.classList.toggle('active', Musify.state.isShuffle);
-      Musify.ui.nowPlayingShuffleBtn.classList.toggle('active', Musify.state.isShuffle);
       Musify.ui.shuffleBtn.title = `Shuffle ${Musify.state.isShuffle ? 'On' : 'Off'}`;
-      Musify.ui.nowPlayingShuffleBtn.title = `Shuffle ${Musify.state.isShuffle ? 'On' : 'Off'}`;
     },
     toggleRepeat() {
-      const { repeatBtn, repeatIcon, nowPlayingRepeatBtn, nowPlayingRepeatIcon } = Musify.ui;
+      const { repeatBtn, repeatIcon } = Musify.ui;
       const state = Musify.state;
       if (state.repeatMode === 'off') {
         state.repeatMode = 'all';
-        repeatBtn.classList.add('active');
-        nowPlayingRepeatBtn.classList.add('active');
+        repeatBtn.classList.add('active'); // Re-add active class
         repeatBtn.title = 'Repeat All';
         repeatIcon.className = 'fas fa-repeat';
-        nowPlayingRepeatIcon.className = 'fas fa-repeat';
       } else if (state.repeatMode === 'all') {
         state.repeatMode = 'one';
         repeatIcon.className = 'fas fa-1';
-        nowPlayingRepeatIcon.className = 'fas fa-1';
         repeatBtn.title = 'Repeat One';
       } else {
         state.repeatMode = 'off';
         repeatBtn.classList.remove('active');
-        nowPlayingRepeatBtn.classList.remove('active');
         repeatIcon.className = 'fas fa-repeat';
-        nowPlayingRepeatIcon.className = 'fas fa-repeat';
         repeatBtn.title = 'Repeat Off';
       }
     },
     updateProgressBar() {
-      const { audioPlayer, progressBar, compactProgressBar, currentTime, totalDuration, nowPlayingProgressBar, nowPlayingCurrentTime, nowPlayingTotalDuration } = Musify.ui;
+      const { audioPlayer, progressBar, compactProgressBar, currentTime, totalDuration } = Musify.ui; // nowPlayingProgressBar removed
       if (!audioPlayer.duration) return;
       const progress = (audioPlayer.currentTime / audioPlayer.duration) * 100;
       const safeProgress = isNaN(progress) ? 0 : progress;
       progressBar.value = safeProgress;
-      nowPlayingProgressBar.value = safeProgress;
-      compactProgressBar.style.width = `${safeProgress}%`;
+      // compactProgressBar.style.width = `${safeProgress}%`; // Removed
       currentTime.textContent = this.formatTime(audioPlayer.currentTime);
-      nowPlayingCurrentTime.textContent = this.formatTime(audioPlayer.currentTime);
       totalDuration.textContent = this.formatTime(audioPlayer.duration);
-      nowPlayingTotalDuration.textContent = this.formatTime(audioPlayer.duration);
     },
     seek(fromNowPlaying = false) {
-      const { audioPlayer, progressBar, nowPlayingProgressBar } = Musify.ui;
-      const sourceProgressBar = fromNowPlaying ? nowPlayingProgressBar : progressBar;
+      const { audioPlayer, progressBar } = Musify.ui; // nowPlayingProgressBar removed
+      const sourceProgressBar = progressBar;
       if (!audioPlayer.duration) return;
       audioPlayer.currentTime = (sourceProgressBar.value / 100) * audioPlayer.duration;
+    },
+    setVolume(value) {
+        Musify.ui.audioPlayer.volume = value;
+        localStorage.setItem('musify_volume', value);
     },
     formatTime(seconds) {
         const minutes = Math.floor(seconds / 60);
@@ -572,12 +627,17 @@ const Musify = {
 
   navigation: {
     showSection(sectionId) {
+      const currentActive = document.querySelector('.content-section.active');
+      if (currentActive) {
+          currentActive.classList.remove('active');
+          if (currentActive.id.includes('-details')) currentActive.classList.add('slide-out');
+      }
+
       const { navigation } = Musify.state;
       if (navigation.currentSection !== sectionId) {
         navigation.previousSection = navigation.currentSection;
         navigation.currentSection = sectionId;
       }
-      Musify.ui.contentSections.forEach(s => s.classList.toggle('active', s.id === sectionId));
       document.querySelectorAll('.nav-btn').forEach(btn => {
         const btnSection = btn.dataset.section;
         btn.classList.toggle('active', btnSection === sectionId);
@@ -594,6 +654,12 @@ const Musify = {
         'timeline': Musify.navigation.loadTimeline,
       }[sectionId];
       if (loadAction) loadAction();
+
+      const newSection = document.getElementById(sectionId);
+      if (newSection) {
+          newSection.classList.remove('slide-out'); // Remove slide-out class if it exists
+          newSection.classList.add('active');
+      }
     },
     goBack() {
         // If we are in a detail view, go back to the previous main section.
@@ -607,28 +673,28 @@ const Musify = {
 
 
     async loadDiscover() {
-      const { recommendedSongs, recommendedPlaylists, recommendedArtists } = Musify.ui;
+      const { recommendedSongs, recommendedAlbums, recommendedArtists } = Musify.ui;
       Musify.render._renderMessage(recommendedSongs, 'Loading Recommended Songs...');
-      Musify.render._renderMessage(recommendedPlaylists, 'Loading Recommended Playlists...');
+      Musify.render._renderMessage(recommendedAlbums, 'Loading Recommended Albums...');
       Musify.render._renderMessage(recommendedArtists, 'Loading Recommended Artists...');
 
-      const [songData, playlistData, artistData] = await Promise.all([
+      const [songData, albumData, artistData] = await Promise.all([
         Musify.api._fetch('/search/songs?query=latest hits&limit=20'),
-        Musify.api._fetch('/search/playlists?query=top playlists&limit=20'),
+        Musify.api._fetch('/search/albums?query=top albums&limit=20'),
         Musify.api._fetch('/search/artists?query=popular artists&limit=20')
       ]);
 
       // Store the fetched data in the state for the player to use
       Musify.state.discover = {
           songs: songData?.data?.results || [],
-          playlists: playlistData?.data?.results || [],
+          albums: albumData?.data?.results || [],
           artists: artistData?.data?.results || [],
       };
 
       // Populate the new "Recommended" sections
-      Musify.render.populate(recommendedSongs, Musify.state.discover.songs, Musify.render.songCard, 'No recommended songs found.', 'Failed to load songs.');
-      Musify.render.populate(recommendedPlaylists, Musify.state.discover.playlists, Musify.render.playlistCard, 'No recommended playlists found.', 'Failed to load playlists.');
-      Musify.render.populate(recommendedArtists, Musify.state.discover.artists, Musify.render.timelineCard, 'No recommended artists found.', 'Failed to load artists.');
+      Musify.render.populate(recommendedSongs, Musify.state.discover.songs, Musify.render.discoverCard, 'No recommended songs found.', 'Failed to load songs.');
+      Musify.render.populate(recommendedAlbums, Musify.state.discover.albums, Musify.render.discoverCard, 'No recommended albums found.', 'Failed to load albums.');
+      Musify.render.populate(recommendedArtists, Musify.state.discover.artists, Musify.render.discoverCard, 'No recommended artists found.', 'Failed to load artists.');
     },
 
     loadSongs() {
@@ -785,68 +851,6 @@ const Musify = {
         Musify.render.populate(savedPlaylistsContainer, Musify.state.savedPlaylists, Musify.render.playlistCard, 'You have no saved playlists yet. Find a playlist and save it!', 'Could not load saved playlists.');
     },
 
-    toggleNowPlaying(show) {
-        const { nowPlayingScreen, nowPlayingArt, nowPlayingTitle, nowPlayingArtist, nowPlayingLikeBtn, nowPlayingQueueBtn } = Musify.ui;
-        if (show) {
-            const song = Musify.state.songQueue[Musify.state.currentSongIndex];
-            if (!song) return; // Don't open if no song is playing
-            nowPlayingArt.src = Musify.render._getImageUrl(song.image);
-            nowPlayingTitle.textContent = song.name || song.title;
-            nowPlayingArtist.textContent = song.primaryArtists || 'Unknown Artist';
-            nowPlayingLikeBtn.classList.toggle('active', Musify.utils.isFavourited(song.id));
-            nowPlayingQueueBtn.classList.toggle('active', Musify.ui.queueSidebar.classList.contains('active'));
-        }
-        nowPlayingScreen.classList.toggle('active', show);
-    },
-
-    toggleQueue() {
-        const isActive = Musify.ui.queueSidebar.classList.toggle('active');
-        Musify.ui.queueBtn.classList.toggle('active', isActive);
-        if (Musify.ui.queueSidebar.classList.contains('active')) this.loadQueue();
-    },
-
-    loadQueue() {
-        const { queueListContainer } = Musify.ui;
-        const { songQueue, currentSongIndex } = Musify.state;
-        queueListContainer.innerHTML = ''; // Clear previous content
-
-        if (songQueue.length === 0) {
-            queueListContainer.innerHTML = `<div class="loading">The queue is empty.</div>`;
-            return;
-        }
-
-        // Now Playing section
-        const nowPlayingHeader = document.createElement('h3');
-        nowPlayingHeader.textContent = 'Now Playing';
-        const nowPlayingSong = this.render.songCard(songQueue[currentSongIndex]);
-        nowPlayingSong.classList.add('is-playing');
-        nowPlayingSong.querySelector('.remove-from-queue-btn').style.display = 'none'; // Can't remove current song
-        queueListContainer.append(nowPlayingHeader, nowPlayingSong);
-
-        // Next Up section
-        const nextUpSongs = songQueue.slice(currentSongIndex + 1);
-        if (nextUpSongs.length > 0) {
-            const nextUpHeader = document.createElement('h3');
-            nextUpHeader.textContent = 'Next Up';
-            const nextUpList = document.createElement('div');
-            nextUpList.className = 'song-list';
-            
-            nextUpSongs.forEach((song, index) => {
-                const songCard = this.render.songCard(song);
-                songCard.draggable = true;
-                songCard.dataset.queueIndex = currentSongIndex + 1 + index; // Store original index
-                nextUpList.appendChild(songCard);
-            });
-
-            // Add drag and drop listeners
-            nextUpList.addEventListener('dragstart', Musify.utils.handleDragStart);
-            nextUpList.addEventListener('dragover', Musify.utils.handleDragOver);
-            nextUpList.addEventListener('drop', Musify.utils.handleDrop);
-
-            queueListContainer.append(nextUpHeader, nextUpList);
-        }
-    },
-
     async loadTimeline() {
       const { timelineList } = Musify.ui;
       Musify.render._renderMessage(timelineList, 'Loading top artists...');
@@ -914,8 +918,8 @@ const Musify = {
         }
     },
 
-    async showPlaylist(event, playlistId) {
-        if (event && event.target.tagName === 'BUTTON') {
+    async showArtist(event, artistId) {
+        if (event && event.target.closest('button')) {
             event.stopPropagation();
             return; // Don't navigate if a button inside the card was clicked
         }
@@ -929,15 +933,62 @@ const Musify = {
 
         if (data && data.topSongs) {
             Musify.render.artistHeader(data);
-            Musify.render.populate(artistTopSongs, data.topSongs, Musify.render.songCard, 'No top songs found.', 'Could not load songs.');
-            Musify.state.songQueue = data.topSongs;
+            const initialSongs = data.topSongs;
+            Musify.render.populate(artistTopSongs, initialSongs, Musify.render.songCard, 'No top songs found.', 'Could not load songs.');
+            Musify.state.songQueue = [...initialSongs];
+
+            // Fetch all remaining songs if there are more than the top songs
+            if (data.songCount > initialSongs.length) {
+                this.fetchAllArtistSongs(artistId, initialSongs.length, data.songCount);
+            }
         } else {
             Musify.render._renderMessage(artistTopSongs, 'Failed to load artist details.', 'error');
         }
-    }
+    },
+    async fetchAllArtistSongs(artistId, initialCount, totalCount) {
+        const { artistTopSongs } = Musify.ui;
+        const loadingIndicator = document.createElement('div');
+        loadingIndicator.className = 'loading';
+        loadingIndicator.textContent = 'Loading more...';
+        artistTopSongs.appendChild(loadingIndicator);
+
+        let page = 1;
+        let fetchedCount = initialCount;
+        while (fetchedCount < totalCount) {
+            const songData = await Musify.api.getArtistSongs(artistId, page);
+            if (songData?.data?.results && songData.data.results.length > 0) {
+                Musify.render.append(artistTopSongs, songData.data.results, Musify.render.songCard);
+                Musify.state.songQueue.push(...songData.data.results);
+                fetchedCount += songData.data.results.length;
+                page++;
+            } else {
+                break; // Stop if there are no more results or an error occurs
+            }
+        }
+        loadingIndicator.remove();
+    },
   },
 
   utils: {
+    applyRippleEffect(event) {
+        const button = event.target.closest('button');
+
+        if (button) {
+            const circle = document.createElement('span');
+            const diameter = Math.max(button.clientWidth, button.clientHeight);
+            const radius = diameter / 2;
+
+            circle.style.width = circle.style.height = `${diameter}px`;
+            circle.style.left = `${event.clientX - button.getBoundingClientRect().left - radius}px`;
+            circle.style.top = `${event.clientY - button.getBoundingClientRect().top - radius}px`;
+            circle.classList.add('ripple');
+
+            const ripple = button.getElementsByClassName('ripple')[0];
+            if (ripple) ripple.remove();
+            
+            button.appendChild(circle);
+        }
+    },
     handleInfiniteScroll(element) {
       const { search } = Musify.state;
       if (element.clientHeight + element.scrollTop >= element.scrollHeight - 100) {
@@ -972,7 +1023,7 @@ const Musify = {
         const menu = document.createElement('div');
         menu.className = 'context-menu';
         
-        const isFavourited = this.isFavourited(songId);
+        const isFavourited = Musify.utils.isFavourited(songId); // Corrected reference
         let playlistItems = '';
         if (Musify.state.userPlaylists.length > 0) {
             playlistItems = Musify.state.userPlaylists.map(p => `<li onclick="addSongToPlaylist('${songId}', '${p.id}')"><i class="fas fa-list"></i> Add to ${p.name}</li>`).join('');
@@ -980,20 +1031,14 @@ const Musify = {
 
         menu.innerHTML = `
             <ul>
-                <li onclick="Musify.utils.addToQueue('${songId}', true)"><i class="fas fa-arrow-up"></i> Play Next</li>
-                <li onclick="Musify.utils.addToQueue('${songId}', false)"><i class="fas fa-arrow-down"></i> Add to Queue</li>
-                <li class="separator"></li>
                 <li onclick="Musify.utils.startRadio('${songId}')"><i class="fas fa-broadcast-tower"></i> Start Radio</li>
                 <li onclick="Musify.utils.downloadSong('${songId}')"><i class="fas fa-download"></i> Download</li>
                 ${playlistItems ? '<li class="separator"></li>' : ''}
                 ${playlistItems}
-                <li class="separator"></li>
-                <li onclick="toggleFavourite('${songId}')">
-                    <i class="fas fa-heart" style="color: ${isFavourited ? 'var(--accent)' : 'inherit'}"></i> 
+                <li onclick="Musify.utils.toggleFavourite('${songId}')">
+                    <i class="fas fa-heart" style="color: ${isFavourited ? 'var(--accent)' : 'inherit'}"></i>
                     ${isFavourited ? 'Remove from Favourites' : 'Add to Favourites'}
                 </li>
-                <li class="separator"></li>
-                ${playlistItems}
             </ul>
         `;
 
@@ -1022,7 +1067,7 @@ const Musify = {
         const deleteOption = playlist ? `<li onclick="Musify.utils.deletePlaylist('${playlistId}')"><i class="fas fa-trash"></i> Delete Playlist</li>` : '';
         menu.innerHTML = `
             <ul>
-                <li onclick="Musify.navigation.showPlaylist('${playlistId}')"><i class="fas fa-eye"></i> View Playlist</li>
+                <li onclick="Musify.navigation.showPlaylist(event, '${playlistId}')"><i class="fas fa-eye"></i> View Playlist</li>
                 ${saveOption ? `<li class="separator"></li>${saveOption}` : ''}
                 ${deleteOption ? `<li class="separator"></li>${deleteOption}` : ''}
             </ul>
@@ -1144,6 +1189,12 @@ const Musify = {
             Musify.state.dynamicTheme = dynamicTheme === 'true';
             Musify.ui.dynamicThemeToggle.checked = Musify.state.dynamicTheme;
         }
+        const volume = localStorage.getItem('musify_volume');
+        if (volume !== null) {
+            const volumeValue = parseFloat(volume);
+            Musify.ui.volumeSlider.value = volumeValue;
+            Musify.player.setVolume(volumeValue);
+        }
     },
     savePlaybackState() {
         const state = Musify.state;
@@ -1223,63 +1274,6 @@ const Musify = {
             Musify.utils.showNotification('Playlist saved to library', 'success');
         }
     },
-    addToQueue(songId, playNext = false) {
-        const song = Musify.state.songQueue.find(s => s.id === songId)
-            || Musify.state.history.find(s => s.id === songId)
-            || Musify.state.favourites.find(s => s.id === songId);
-        
-        if (song) {
-            if (playNext) {
-                Musify.state.songQueue.splice(Musify.state.currentSongIndex + 1, 0, song);
-                Musify.utils.showNotification('Will play next', 'success');
-            } else {
-                Musify.state.songQueue.push(song);
-                Musify.utils.showNotification('Added to queue', 'success');
-            }
-            if (Musify.ui.queueSidebar.classList.contains('active')) Musify.navigation.loadQueue();
-        }
-    },
-    removeFromQueue(songId) {
-        const { songQueue, currentSongIndex } = Musify.state;
-        // Find the first index of the song *after* the currently playing song
-        const indexToRemove = songQueue.findIndex((s, i) => s.id === songId && i > currentSongIndex);
-
-        if (indexToRemove > -1) {
-            songQueue.splice(indexToRemove, 1);
-            Musify.navigation.loadQueue(); // Refresh the queue view
-        }
-    },
-    clearQueue() {
-        const { songQueue, currentSongIndex } = Musify.state;
-        if (songQueue.length > currentSongIndex + 1) {
-            Musify.state.songQueue = songQueue.slice(0, currentSongIndex + 1);
-            Musify.navigation.loadQueue();
-            Musify.utils.showNotification('Queue cleared', 'success');
-        }
-    },
-    handleDragStart(e) {
-        e.target.classList.add('dragging');
-    },
-    handleDragOver(e) {
-        e.preventDefault();
-        const draggingElement = document.querySelector('.dragging');
-        const afterElement = [...e.target.closest('.song-list').querySelectorAll('.song:not(.dragging)')].reduce((closest, child) => {
-            const box = child.getBoundingClientRect();
-            const offset = e.clientY - box.top - box.height / 2;
-            if (offset < 0 && offset > closest.offset) return { offset: offset, element: child };
-            else return closest;
-        }, { offset: Number.NEGATIVE_INFINITY }).element;
-        
-        if (afterElement == null) e.target.closest('.song-list').appendChild(draggingElement);
-        else e.target.closest('.song-list').insertBefore(draggingElement, afterElement);
-    },
-    handleDrop(e) {
-        const draggingElement = e.target.closest('.song-list').querySelector('.dragging');
-        draggingElement.classList.remove('dragging');
-        const newOrderIds = [...e.target.closest('.song-list').querySelectorAll('.song')].map(songEl => songEl.querySelector('.play-btn').onclick.toString().match(/'([^']+)'/)[1]);
-        const newNextUp = newOrderIds.map(id => Musify.state.songQueue.find(s => s.id === id));
-        Musify.state.songQueue.splice(Musify.state.currentSongIndex + 1, newNextUp.length, ...newNextUp);
-    },
     async startRadio(songId, append = false) {
         const suggestionsData = await Musify.api.getSongSuggestions(songId, 20);
         const originalSong = Musify.state.songQueue.find(s => s.id === songId)
@@ -1289,12 +1283,10 @@ const Musify = {
         if (suggestionsData?.data && originalSong) {
             if (append) {
                 Musify.state.songQueue.push(...suggestionsData.data);
-                if (Musify.ui.queueSidebar.classList.contains('active')) Musify.navigation.loadQueue();
             } else {
                 Musify.state.songQueue = [originalSong, ...suggestionsData.data];
                 Musify.state.currentSongIndex = 0;
                 Musify.player.playCurrent();
-                this.toggleQueue();
             }
         } else {
             Musify.utils.showNotification('Could not start radio for this song.', 'error');
@@ -1466,14 +1458,6 @@ function playSongFromCard(event, songId) {
 
 function triggerSearch() {
   Musify.navigation.triggerSearch();
-}
-
-function toggleNowPlaying(show) {
-    Musify.navigation.toggleNowPlaying(show);
-}
-
-function toggleQueue() {
-    Musify.navigation.toggleQueue();
 }
 
 function togglePlayPause() {

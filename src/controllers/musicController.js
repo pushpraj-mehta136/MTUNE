@@ -26,7 +26,7 @@ async function getSong(req, res) {
 
 async function getAlbum(req, res) {
   try {
-    const albumId = req.params.id;
+    const albumId = req.query.id;
     if (!albumId) return res.status(400).json({ success: false, message: 'Album ID is required.' });
     const data = await jiosaavnAPI.getAlbum(albumId);
     res.json(data);
@@ -37,7 +37,7 @@ async function getAlbum(req, res) {
 
 async function getPlaylist(req, res) {
   try {
-    const playlistId = req.params.id;
+    const playlistId = req.query.id;
     if (!playlistId) return res.status(400).json({ success: false, message: 'Playlist ID is required.' });
     const data = await jiosaavnAPI.getPlaylist(playlistId);
     res.json(data);
