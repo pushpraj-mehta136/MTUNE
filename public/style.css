@@ -400,6 +400,7 @@ h2 {
   gap: 1.5rem;
   padding: 1rem 0.5rem;
   margin: 0 -0.5rem;
+  -webkit-overflow-scrolling: touch; /* Smooth scrolling on iOS */
 }
 
 .scrollable-row::-webkit-scrollbar {
@@ -875,6 +876,18 @@ body.dark .song-list::-webkit-scrollbar-track {
     display: none;
 }
 
+.mobile-progress-bar {
+    display: none; /* Hidden by default */
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    height: 3px;
+    background: var(--accent);
+    width: 0;
+    cursor: pointer; /* Indicate it's clickable */
+    transition: width 0.2s linear;
+}
+
 /* Settings Page */
 .settings-accordion {
   display: flex;
@@ -1229,6 +1242,10 @@ body.dark .slider:before {
         padding: 0.6rem 1rem;
         grid-template-columns: 1fr auto;
         gap: 1rem;
+    }
+    .mobile-progress-bar {
+        display: block;
+        border-bottom-left-radius: var(--card-radius);
     }
     .player-center-section, .player-right-controls .volume-control {
         display: none;
