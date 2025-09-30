@@ -1,0 +1,328 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>MUSIFY</title>
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/7.0.0/css/all.min.css" rel="stylesheet"/>
+  <link rel="stylesheet" href="style.css" />
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/color-thief/2.3.2/color-thief.umd.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/id3-writer@1/dist/browser.min.js"></script>
+</head>
+<body>
+  <div id="notification-container"></div>
+  <div id="app" class="app-container">
+    <aside class="sidebar">
+      <div class="sidebar-header">MUSIFY</div>
+      <nav id="mainNav" class="nav-list">
+        <button class="nav-btn active" onclick="showSection('discover')" data-section="discover"><i class="fas fa-home"></i> Discover</button>
+        <button class="nav-btn" onclick="showSection('search')" data-section="search"><i class="fas fa-search"></i> Search</button>
+        <button class="nav-btn" onclick="showSection('library')" data-section="library"><i class="fas fa-book"></i> Library</button>
+        <button class="nav-btn" onclick="showSection('history')" data-section="history"><i class="fas fa-history"></i> History</button>
+        <!-- Timeline removed for a cleaner mobile nav, can be re-added if needed -->
+        <button class="nav-btn" onclick="showSection('settings')" data-section="settings"><i class="fas fa-cog"></i> Settings</button>
+      </nav>
+    </aside>
+    <main class="main-content">
+      <header id="mainSearchBar" class="search-bar">
+        <div class="search-input-container">
+          <input type="search" id="searchBar" placeholder="What do you want to listen to?" aria-label="Search music" autocomplete="off" />
+          <div id="searchSuggestions" class="search-suggestions"></div>
+        </div>
+        <button title="Search" onclick="triggerSearch()"><i class="fas fa-search"></i></button>
+      </header>
+
+      <section id="discover" class="content-section active">
+        <h1>Discover</h1>
+        <section>
+          <h2>Recommended Songs</h2>
+          <div class="grid-container scrollable-row" id="recommendedSongs">
+            <!-- Recommended songs will be loaded here -->
+          </div>
+        </section>
+        
+        <section>
+          <h2>Recommended Playlists</h2>
+          <div class="grid-container scroll-row" id="recommendedPlaylists">
+            <!-- Recommended playlists will be loaded here -->
+          </div>
+        </section>
+        
+        <section>
+          <h2>Recommended Artists</h2>
+          <div class="grid-container scrollable-row" id="recommendedArtists">
+            <!-- Recommended artists will be loaded here -->
+          </div>
+        </section>
+      </section>
+
+      <section id="search" class="content-section">
+        <h1>Search</h1>
+        <div id="searchResultsContainer">
+            <section>
+                <h2>Songs</h2>
+                <div id="songList" class="song-list"></div>
+            </section>
+            <section>
+                <h2>Albums</h2>
+                <div id="albumSearchResults" class="album-grid"></div>
+            </section>
+            <section>
+                <h2>Artists</h2>
+                <div id="artistSearchResults" class="artist-list"></div>
+            </section>
+        </div>
+      </section>
+
+      <section id="library" class="content-section">
+        <h1>My Library</h1>
+        <div class="library-quick-access">
+            <div class="library-item" onclick="showSection('downloads')">
+                <i class="fas fa-download"></i>
+                <span>Downloads</span>
+            </div>
+            <div class="library-item" onclick="showSection('favourites')">
+                <i class="fas fa-heart"></i>
+                <span>Favourite Songs</span>
+            </div>
+            <div class="library-item" onclick="showSection('saved-playlists')">
+                <i class="fas fa-bookmark"></i>
+                <span>Saved Playlists</span>
+            </div>
+        </div>
+        <h2>My Playlists</h2>
+        <div id="userPlaylists" class="grid-container scrollable-row">
+        </div>
+      </section>
+
+      <section id="saved-playlists" class="content-section">
+        <h1><i class="fas fa-bookmark" style="color: var(--accent);"></i> Saved Playlists</h1>
+        <div id="savedPlaylistsContainer" class="album-grid"></div>
+      </section>
+
+      <section id="favourites" class="content-section">
+        <h1><i class="fas fa-heart" style="color: var(--accent);"></i> Favourite Songs</h1>
+        <div class="contextual-search-bar">
+          <i class="fas fa-search"></i>
+          <input type="search" oninput="filterSongList(this.value, 'favouriteSongsList')" placeholder="Filter favourite songs...">
+        </div>
+        <div id="favouriteSongsList" class="song-list"></div>
+      </section>
+
+      <section id="downloads" class="content-section">
+        <h1><i class="fas fa-download"></i> Downloads</h1>
+        <div class="contextual-search-bar">
+          <i class="fas fa-search"></i>
+          <input type="search" placeholder="Filter downloads..." disabled>
+        </div>
+        <div class="loading">Downloads feature is coming soon!</div>
+      </section>
+
+      <section id="playlist-details" class="content-section">
+        <!-- Content will be dynamically generated by JS -->
+        <div id="playlistDetailsHeader"></div>
+        <div class="contextual-search-bar">
+          <i class="fas fa-search"></i>
+          <input type="search" oninput="filterSongList(this.value, 'playlistSongs')" placeholder="Search in playlist...">
+        </div>
+        <div id="playlistSongs" class="song-list"></div>
+      </section>
+
+      <section id="album-details" class="content-section">
+        <!-- Content will be dynamically generated by JS -->
+        <div id="albumDetailsHeader"></div>
+        <div class="contextual-search-bar">
+          <i class="fas fa-search"></i>
+          <input type="search" oninput="filterSongList(this.value, 'albumSongs')" placeholder="Search in album...">
+        </div>
+        <div id="albumSongs" class="song-list"></div>
+      </section>
+
+      <section id="artist-details" class="content-section">
+        <!-- Content will be dynamically generated by JS -->
+        <div id="artistDetailsHeader"></div>
+        <h2>Top Songs</h2>
+        <div id="artistTopSongs" class="song-list"></div>
+      </section>
+
+      <section id="history" class="content-section">
+        <h1>History</h1>
+        <div class="contextual-search-bar">
+          <i class="fas fa-search"></i>
+          <input type="search" oninput="filterSongList(this.value, 'historyList')" placeholder="Filter history...">
+        </div>
+        <div id="historyList" class="song-list"></div>
+      </section>
+
+      <section id="timeline" class="content-section">
+        <h1>Timeline</h1>
+        <div id="timelineList" class="artist-list"></div>
+      </section>
+
+      <section id="settings" class="content-section">
+        <h1>Settings</h1>
+        <div class="settings-accordion">
+          <div class="accordion-item">
+            <button class="accordion-header">Appearance</button>
+            <div class="accordion-content">
+              <div class="settings-option">
+                <div><h3>Dark Mode</h3><p>Toggle between light and dark themes</p></div>
+                <label class="toggle-switch"><input type="checkbox" onchange="toggleDarkMode()"><span class="slider"></span></label>
+              </div>
+              <div class="settings-option">
+                <div><h3>Dynamic Theming</h3><p>Change player theme based on album art</p></div>
+                <label class="toggle-switch"><input type="checkbox" id="dynamicThemeToggle" onchange="toggleDynamicTheme(this.checked)" checked><span class="slider"></span></label>
+              </div>
+            </div>
+          </div>
+
+          <div class="accordion-item">
+            <button class="accordion-header">Playback</button>
+            <div class="accordion-content">
+              <div class="settings-option">
+                <div><h3>Audio Quality</h3><p>Set your preferred audio quality</p></div>
+                <select id="audioQuality" class="settings-select">
+                  <option value="320kbps" selected>High (320kbps)</option>
+                  <option value="160kbps">Medium (160kbps)</option>
+                  <option value="128kbps">Standard (128kbps)</option>
+                </select>
+              </div>
+              <div class="settings-option">
+                <div><h3>Endless Queue</h3><p>Automatically add similar songs when your queue ends</p></div>
+                <label class="toggle-switch"><input type="checkbox" id="endlessQueueToggle" onchange="toggleEndlessQueue(this.checked)" checked><span class="slider"></span></label>
+              </div>
+            </div>
+          </div>
+
+          <div class="accordion-item">
+            <button class="accordion-header">Downloads</button>
+            <div class="accordion-content">
+              <div class="settings-option">
+                <div><h3>Download Location</h3><p>Choose where to save your music. Your browser will ask for permission.</p></div>
+                <button class="nav-btn" onclick="Musify.utils.selectDownloadFolder()"><i class="fas fa-folder-open"></i> Choose Folder</button>
+              </div>
+            </div>
+          </div>
+
+          <div class="accordion-item">
+            <button class="accordion-header">Data Management</button>
+            <div class="accordion-content">
+              <div class="settings-option">
+                <div><h3>Clear Listening History</h3><p>This will permanently delete your listening history.</p></div>
+                <button class="nav-btn danger-btn" onclick="clearHistory()"><i class="fas fa-trash"></i> Clear History</button>
+              </div>
+              <div class="settings-option">
+                <div><h3>Clear Favourites</h3><p>This will permanently delete all your favourite songs.</p></div>
+                <button class="nav-btn danger-btn" onclick="clearFavourites()"><i class="fas fa-trash"></i> Clear Favourites</button>
+              </div>
+              <div class="settings-option">
+                <div><h3>Reset All Data</h3><p>This will delete all history, favourites, and playlists.</p></div>
+                <button class="nav-btn danger-btn reset-btn" onclick="clearAllData()"><i class="fas fa-exclamation-triangle"></i> Reset App</button>
+              </div>
+            </div>
+          </div>
+
+          <div class="accordion-item">
+            <button class="accordion-header">General</button>
+            <div class="accordion-content">
+              <div class="settings-option">
+                <div><h3>Notifications</h3><p>Enable or disable app notifications</p></div>
+                <label class="toggle-switch">
+                  <input type="checkbox" id="notificationsToggle" onchange="toggleNotifications(this.checked)" checked>
+                  <span class="slider"></span>
+                </label>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <footer class="bottom-player">
+      <div class="player-info" onclick="toggleNowPlaying(true)">
+        <div class="player-song-info">
+            <img id="currentSongImg" alt="Album Art" src="" />
+            <div class="player-text">
+              <div id="currentSongTitle">No song playing</div>
+              <div id="currentSongArtist"></div>
+            </div>
+            <button id="likeBtn" class="player-like-btn" onclick="likeCurrentSong()" title="Add to Favourites"><i class="far fa-heart"></i></button>
+        </div>
+        <div class="player-center-section">
+            <div class="player-controls desktop-controls">
+              <button onclick="toggleShuffle()" id="shuffleBtn" title="Shuffle Off"><i class="fas fa-shuffle"></i></button>
+              <button onclick="prevSong()" id="prevBtn" title="Previous"><i class="fas fa-backward"></i></button>
+              <button onclick="togglePlayPause()" id="playPauseBtn" title="Play/Pause"><i id="playPauseIcon" class="fas fa-play"></i></button>
+              <button onclick="nextSong()" id="nextBtn" title="Next"><i class="fas fa-forward"></i></button>
+              <button onclick="toggleRepeat()" id="repeatBtn" title="Repeat Off"><i id="repeatIcon" class="fas fa-repeat"></i></button>
+            </div>
+            <div class="progress-container">
+                <span id="currentTime">0:00</span>
+                <input id="progressBar" type="range" min="0" max="100" value="0" aria-label="Playback progress" />
+                <span id="totalDuration">0:00</span>
+            </div>
+        </div>
+        <div class="player-controls mobile-controls">
+            <button onclick="prevSong()"><i class="fas fa-backward"></i></button>
+            <button onclick="togglePlayPause()"><i id="mobilePlayPauseIcon" class="fas fa-play"></i></button>
+            <button onclick="nextSong()"><i class="fas fa-forward"></i></button>
+        </div>
+        <div class="player-right-controls">
+          <button id="queueBtn" onclick="toggleQueue()" title="Show Queue"><i class="fas fa-bars-staggered"></i></button>
+          <div class="volume-control">
+            <!-- Volume slider can be added here in the future -->
+          </div>
+        </div>
+      </div>
+      <div id="compact-progress-bar" class="compact-progress-bar"></div>
+      <audio id="audioPlayer"></audio>
+    </footer>
+    <aside id="queueSidebar" class="queue-sidebar">
+        <div class="queue-header">
+            <h1>Play Queue</h1>
+            <div>
+                <button onclick="Musify.utils.clearQueue()" title="Clear Queue">Clear</button>
+                <button onclick="toggleQueue()" title="Close Queue"><i class="fas fa-times"></i></button>
+            </div>
+        </div>
+        <div id="queueListContainer" class="queue-list-container">
+            <!-- Queue content will be rendered here by JS -->
+        </div>
+    </aside>
+    <div id="nowPlayingScreen" class="now-playing-screen">
+        <div class="now-playing-header">
+            <button onclick="toggleNowPlaying(false)"><i class="fas fa-chevron-down"></i></button>
+            <span>Now Playing</span>
+            <button id="nowPlayingQueueBtn" onclick="toggleQueue()"><i class="fas fa-list-ol"></i></button>
+        </div>
+        <div class="now-playing-body">
+            <div class="now-playing-art">
+                <img id="nowPlayingArt" src="" alt="Large Album Art"/>
+            </div>
+            <div class="now-playing-info">
+                <div class="now-playing-text">
+                    <h2 id="nowPlayingTitle">No song playing</h2>
+                    <p id="nowPlayingArtist"></p>
+                </div>
+                <button id="nowPlayingLikeBtn" class="player-like-btn" onclick="likeCurrentSong()"><i class="far fa-heart"></i></button>
+            </div>
+            <div class="now-playing-progress">
+                <input id="nowPlayingProgressBar" type="range" min="0" max="100" value="0" aria-label="Playback progress" />
+                <div class="time-display">
+                    <span id="nowPlayingCurrentTime">0:00</span>
+                    <span id="nowPlayingTotalDuration">0:00</span>
+                </div>
+            </div>
+            <div id="nowPlayingControls" class="player-controls">
+                <button onclick="toggleShuffle()" id="nowPlayingShuffleBtn" title="Shuffle Off"><i class="fas fa-shuffle"></i></button>
+                <button onclick="prevSong()"><i class="fas fa-backward"></i></button>
+                <button onclick="togglePlayPause()"><i id="nowPlayingPlayPauseIcon" class="fas fa-play"></i></button>
+                <button onclick="nextSong()"><i class="fas fa-forward"></i></button>
+                <button onclick="toggleRepeat()" id="nowPlayingRepeatBtn" title="Repeat Off"><i id="nowPlayingRepeatIcon" class="fas fa-repeat"></i></button>
+            </div>
+        </div>
+    </div>
+  </div>
+  <script src="app.js"></script>
+</body>
+</html>
