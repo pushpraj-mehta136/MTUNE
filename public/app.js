@@ -71,7 +71,7 @@ const Musify = {
       currentSongArtist: document.getElementById('currentSongArtist'),
       currentSongImg: document.getElementById('currentSongImg'),
       progressBar: document.getElementById('progressBar'),
-      compactProgressBar: document.getElementById('compact-progress-bar'),
+      mobileProgressBar: document.getElementById('mobile-progress-bar'),
       searchBar: document.getElementById('searchBar'),
       currentTime: document.getElementById('currentTime'),
       totalDuration: document.getElementById('totalDuration'),
@@ -125,6 +125,8 @@ const Musify = {
             header.parentElement.classList.toggle('active');
         });
     });
+    // Add mobile-specific gesture listeners
+    this.utils.addMobileGestures();
 
     // Use event delegation for marquee effect and infinite scroll
     this.ui.mainContent.addEventListener('mouseover', this.utils.handleMarquee);
@@ -461,16 +463,19 @@ const Musify = {
           await Musify.ui.audioPlayer.play();
           state.isPlaying = true;
           Musify.ui.playPauseIcon.className = 'fas fa-pause';
+          Musify.ui.mobilePlayPauseIcon.className = 'fas fa-pause';
           Musify.ui.likeBtn.classList.toggle('active', Musify.utils.isFavourited(song.id));
           this.addToHistory(songDetails);
           this.updateMediaSession(songDetails);
         } catch (e) {
           state.isPlaying = false;
           Musify.ui.playPauseIcon.className = 'fas fa-play';
+          Musify.ui.mobilePlayPauseIcon.className = 'fas fa-play';
           console.error("Playback failed", e);
         }
       } else {
         Musify.ui.playPauseIcon.className = 'fas fa-play';
+        Musify.ui.mobilePlayPauseIcon.className = 'fas fa-play';
         console.error('Song object from queue is missing downloadUrl:', songDetails);
         Musify.utils.showNotification(`Unable to get a playable link for "${song.name || song.title}".`, 'error');
       }
@@ -569,12 +574,12 @@ const Musify = {
       }
     },
     updateProgressBar() {
-      const { audioPlayer, progressBar, compactProgressBar, currentTime, totalDuration } = Musify.ui; // nowPlayingProgressBar removed
+      const { audioPlayer, progressBar, mobileProgressBar, currentTime, totalDuration } = Musify.ui;
       if (!audioPlayer.duration) return;
       const progress = (audioPlayer.currentTime / audioPlayer.duration) * 100;
       const safeProgress = isNaN(progress) ? 0 : progress;
       progressBar.value = safeProgress;
-      // compactProgressBar.style.width = `${safeProgress}%`; // Removed
+      if (mobileProgressBar) mobileProgressBar.style.width = `${safeProgress}%`;
       currentTime.textContent = this.formatTime(audioPlayer.currentTime);
       totalDuration.textContent = this.formatTime(audioPlayer.duration);
     },
@@ -970,6 +975,37 @@ const Musify = {
   },
 
   utils: {
+    addMobileGestures() {
+        const player = document.querySelector('.bottom-player');
+        let touchStartX = 0;
+        let touchEndX = 0;
+
+        player.addEventListener('touchstart', (event) => {
+            // Ignore touch if it's on a button or the progress bar
+            if (event.target.closest('button, input[type="range"], .mobile-progress-bar')) return;
+            touchStartX = event.changedTouches[0].screenX;
+        }, { passive: true });
+
+        player.addEventListener('touchend', (event) => {
+            if (touchStartX === 0) return; // Touch was ignored
+            touchEndX = event.changedTouches[0].screenX;
+            const deltaX = touchEndX - touchStartX;
+            if (Math.abs(deltaX) > 50) { // Minimum swipe distance
+                if (deltaX < 0) Musify.player.next(); // Swipe left
+                if (deltaX > 0) Musify.player.prev(); // Swipe right
+            }
+            touchStartX = 0; // Reset
+        }, { passive: true });
+
+        // Make mobile progress bar seekable
+        const mobileProgressBar = Musify.ui.mobileProgressBar;
+        mobileProgressBar.addEventListener('click', (e) => {
+            const rect = mobileProgressBar.getBoundingClientRect();
+            const clickX = e.clientX - rect.left;
+            const percentage = clickX / rect.width;
+            Musify.ui.audioPlayer.currentTime = Musify.ui.audioPlayer.duration * percentage;
+        });
+    },
     applyRippleEffect(event) {
         const button = event.target.closest('button');
 
