@@ -53,6 +53,35 @@ body.dark {
   }
 }
 
+/* --- Custom Font: Coves --- */
+/* Please place your font files in a 'public/fonts/' directory */
+@font-face {
+  font-family: 'Coves';
+  src: url('./fonts/Coves-Light.otf') format('opentype');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Coves';
+  src: url('./fonts/Coves-Bold.otf') format('opentype');
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+/* --- End Custom Fonts --- */
+
+@keyframes tab-switch {
+    from {
+        opacity: 0.8;
+        transform: scale(0.98);
+    }
+    to {
+        opacity: 1;
+        transform: scale(1);
+    }
+}
+
 @keyframes slideInUp {
   from {
     opacity: 0;
@@ -78,13 +107,13 @@ body.dark {
 }
 
 @keyframes slideInFromRight {
-    from { transform: translateX(100%); opacity: 0.8; }
+    from { transform: translateX(100%); opacity: 0; }
     to { transform: translateX(0); opacity: 1; }
 }
 
 @keyframes slideOutToRight {
     from { transform: translateX(0); opacity: 1; }
-    to { transform: translateX(100%); opacity: 0; }
+    to { transform: translateX(-100%); opacity: 0; }
 }
 
 .slide-out {
@@ -119,7 +148,7 @@ body.dark {
 
 html, body {
   height: 100%;
-  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  font-family: 'Coves';
   background: linear-gradient(135deg, var(--dynamic-primary-dark) 0%, var(--dynamic-primary) 100%);
   color: var(--text-primary);
   overflow: hidden;
@@ -155,7 +184,6 @@ html, body {
 
 .sidebar-header {
   font-size: 2.2rem;
-  font-weight: 800;
   margin-bottom: 2rem;
   color: var(--text-primary);
   text-align: center;
@@ -364,18 +392,17 @@ body.dark .main-content::-webkit-scrollbar-thumb {
   gap: 1.5rem;
   position: relative;
 }
-.content-section[id*="-details"].active {
-    animation: slideInFromRight 0.5s cubic-bezier(0.25, 0.46, 0.45, 0.94) forwards;
-}
 .content-section.active {
-  display: flex;
-  animation: fadeIn 0.5s ease-out forwards;
+    display: flex;
+    animation: tab-switch 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+}
+.content-section[id*="-details"].active {
+    animation: slideInFromRight 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
 }
 
 /* Headers */
 h1, h2 {
-  margin-bottom: 1rem;
-  font-family: 'Segoe UI Semibold', 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  margin-bottom: 1rem; 
 }
 
 h1 {
@@ -400,6 +427,7 @@ h2 {
   gap: 1.5rem;
   padding: 1rem 0.5rem;
   margin: 0 -0.5rem;
+  -webkit-overflow-scrolling: touch; /* Smooth scrolling on iOS */
 }
 
 .scrollable-row::-webkit-scrollbar {
@@ -875,6 +903,18 @@ body.dark .song-list::-webkit-scrollbar-track {
     display: none;
 }
 
+.mobile-progress-bar {
+    display: none; /* Hidden by default */
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    height: 3px;
+    background: var(--accent);
+    width: 0;
+    cursor: pointer; /* Indicate it's clickable */
+    transition: width 0.2s linear;
+}
+
 /* Settings Page */
 .settings-accordion {
   display: flex;
@@ -1215,7 +1255,7 @@ body.dark .slider:before {
         margin: 0;
         border-radius: var(--card-radius);
         /* Padding for player and bottom nav */
-        padding: 1rem 1.5rem calc(80px + 65px) 1.5rem;
+        padding: 1rem 1.5rem calc(95px + 75px) 1.5rem;
     }
     .song-list { max-height: none; }
     .discover-card { width: 140px; }
@@ -1229,6 +1269,10 @@ body.dark .slider:before {
         padding: 0.6rem 1rem;
         grid-template-columns: 1fr auto;
         gap: 1rem;
+    }
+    .mobile-progress-bar {
+        display: block;
+        border-bottom-left-radius: var(--card-radius);
     }
     .player-center-section, .player-right-controls .volume-control {
         display: none;

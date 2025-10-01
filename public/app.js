@@ -29,9 +29,7 @@ const Musify = {
   ui: {},
 
   api: {
-    // All API calls will now go directly to the saavn.dev domain.
-    // This will only work if saavn.dev has the correct CORS headers.
-    BASE_URL: "https://saavn.dev/api",
+    BASE_URL: "https://mtuneapi.vercel.app/api",
 
     async _fetch(path) {
       try {
@@ -48,7 +46,7 @@ const Musify = {
 
     searchAll: (query) => Musify.api._fetch(`/search?query=${encodeURIComponent(query)}`),
     getSongDetails: (id) => Musify.api._fetch(`/songs/${id}`),
-    getPlaylistDetails: (id) => Musify.api._fetch(`/playlists/${id}`),
+    getPlaylistDetails: (id, page = 1, limit = 50) => Musify.api._fetch(`/playlists?id=${id}&page=${page}&limit=${limit}`),
     getAlbumDetails: (id) => Musify.api._fetch(`/albums?id=${id}`),
     getArtistDetails: (id) => Musify.api._fetch(`/artists?id=${id}`),
     getArtistSongs: (id, page) => Musify.api._fetch(`/artists/${id}/songs?page=${page}&limit=50`),
@@ -71,7 +69,7 @@ const Musify = {
       currentSongArtist: document.getElementById('currentSongArtist'),
       currentSongImg: document.getElementById('currentSongImg'),
       progressBar: document.getElementById('progressBar'),
-      compactProgressBar: document.getElementById('compact-progress-bar'),
+      mobileProgressBar: document.getElementById('mobile-progress-bar'),
       searchBar: document.getElementById('searchBar'),
       currentTime: document.getElementById('currentTime'),
       totalDuration: document.getElementById('totalDuration'),
@@ -82,6 +80,7 @@ const Musify = {
       // Discover page sections
       recommendedSongs: document.getElementById('recommendedSongs'),
       recommendedAlbums: document.getElementById('recommendedAlbums'),
+      recommendedPlaylists: document.getElementById('recommendedPlaylists'),
       recommendedArtists: document.getElementById('recommendedArtists'),
       songList: document.getElementById('songList'),
       albumSearchResults: document.getElementById('albumSearchResults'),
@@ -125,6 +124,8 @@ const Musify = {
             header.parentElement.classList.toggle('active');
         });
     });
+    // Add mobile-specific gesture listeners
+    this.utils.addMobileGestures();
 
     // Use event delegation for marquee effect and infinite scroll
     this.ui.mainContent.addEventListener('mouseover', this.utils.handleMarquee);
@@ -171,22 +172,29 @@ const Musify = {
     discoverCard(item) {
         const div = document.createElement('div');
         div.className = 'discover-card';
-        const type = item.type || (item.songCount ? 'playlist' : 'artist');
-        let onclickAction = '';
+        // Determine type. Albums and Playlists can be ambiguous.
+        let type = item.type;
+        if (!type) {
+            if (item.songCount && item.year) type = 'album';
+            else if (item.songCount) type = 'playlist';
+            else if (item.role === 'artist') type = 'artist';
+            else type = 'song'; // fallback
+        }
+
+        let cardClickAction = '';
+        let playButtonClickAction = `Musify.player.playFromCardContext(event, '${item.id}', '${type}')`;
+
         if (type === 'song') {
-            onclickAction = `Musify.player.playSongFromCard(event, '${item.id}')`;
-        } else if (type === 'playlist' || type === 'album') {
-            onclickAction = (type === 'album') 
-                ? `Musify.navigation.showAlbum('${item.id}')` 
-                : `Musify.navigation.showPlaylist(event, '${item.id}', false)`;
-        } else if (type === 'artist') {
-            onclickAction = `Musify.navigation.showArtist(event, '${item.id}')`;
+            cardClickAction = playButtonClickAction;
+        } else {
+            const functionMap = { 'playlist': 'showPlaylist', 'album': 'showAlbum', 'artist': 'showArtist' };
+            cardClickAction = `Musify.navigation.${functionMap[type]}(event, '${item.id}')`;
         }
 
         div.innerHTML = `
-            <div class="discover-card-art" onclick="${onclickAction}">
+            <div class="discover-card-art" onclick="${cardClickAction}">
                 <img src="${this._getImageUrl(item.image)}" alt="${this._decode(item.name || item.title)}" loading="lazy" onerror="this.src='default_cover.jpg'"/>
-                <button class="play-btn"><i class="fas fa-play"></i></button>
+                <button class="play-btn" onclick="${playButtonClickAction}"><i class="fas fa-play"></i></button>
             </div>
             <strong><span>${this._decode(item.name || item.title)}</span></strong>
             <small>${this._decode(item.primaryArtists || item.description || item.subtitle || 'Music')}</small>`;
@@ -412,6 +420,41 @@ const Musify = {
         }
         this.playFromQueue(songId);
     },
+    async playFromCardContext(event, itemId, itemType) {
+        event.stopPropagation(); // Don't trigger the card's navigation
+
+        let songs = [];
+        let data;
+
+        Musify.utils.showNotification(`Loading ${itemType}...`);
+
+        try {
+            switch (itemType) {
+                case 'playlist':
+                    data = await Musify.api.getPlaylistDetails(itemId, 1, 100); // Fetch a good chunk initially
+                    songs = data?.data?.songs || [];
+                    break;
+                case 'album':
+                    data = await Musify.api.getAlbumDetails(itemId);
+                    songs = data?.data?.songs || [];
+                    break;
+                case 'artist':
+                    data = await Musify.api.getArtistDetails(itemId);
+                    songs = data?.data?.topSongs || [];
+                    break;
+            }
+
+            if (songs.length > 0) {
+                Musify.state.songQueue = songs;
+                this.playFromQueue(songs[0].id);
+            } else {
+                Musify.utils.showNotification(`Could not find any songs for this ${itemType}.`, 'error');
+            }
+        } catch (error) {
+            Musify.utils.showNotification(`Failed to load ${itemType}.`, 'error');
+            console.error(`Error playing from ${itemType} card:`, error);
+        }
+    },
     playFromQueue(songId) {
       const index = Musify.state.songQueue.findIndex(s => s.id === songId);
       if (index !== -1) {
@@ -461,16 +504,19 @@ const Musify = {
           await Musify.ui.audioPlayer.play();
           state.isPlaying = true;
           Musify.ui.playPauseIcon.className = 'fas fa-pause';
+          Musify.ui.mobilePlayPauseIcon.className = 'fas fa-pause';
           Musify.ui.likeBtn.classList.toggle('active', Musify.utils.isFavourited(song.id));
           this.addToHistory(songDetails);
           this.updateMediaSession(songDetails);
         } catch (e) {
           state.isPlaying = false;
           Musify.ui.playPauseIcon.className = 'fas fa-play';
+          Musify.ui.mobilePlayPauseIcon.className = 'fas fa-play';
           console.error("Playback failed", e);
         }
       } else {
         Musify.ui.playPauseIcon.className = 'fas fa-play';
+        Musify.ui.mobilePlayPauseIcon.className = 'fas fa-play';
         console.error('Song object from queue is missing downloadUrl:', songDetails);
         Musify.utils.showNotification(`Unable to get a playable link for "${song.name || song.title}".`, 'error');
       }
@@ -569,12 +615,12 @@ const Musify = {
       }
     },
     updateProgressBar() {
-      const { audioPlayer, progressBar, compactProgressBar, currentTime, totalDuration } = Musify.ui; // nowPlayingProgressBar removed
+      const { audioPlayer, progressBar, mobileProgressBar, currentTime, totalDuration } = Musify.ui;
       if (!audioPlayer.duration) return;
       const progress = (audioPlayer.currentTime / audioPlayer.duration) * 100;
       const safeProgress = isNaN(progress) ? 0 : progress;
       progressBar.value = safeProgress;
-      // compactProgressBar.style.width = `${safeProgress}%`; // Removed
+      if (mobileProgressBar) mobileProgressBar.style.width = `${safeProgress}%`;
       currentTime.textContent = this.formatTime(audioPlayer.currentTime);
       totalDuration.textContent = this.formatTime(audioPlayer.duration);
     },
@@ -673,27 +719,31 @@ const Musify = {
 
 
     async loadDiscover() {
-      const { recommendedSongs, recommendedAlbums, recommendedArtists } = Musify.ui;
+      const { recommendedSongs, recommendedAlbums, recommendedPlaylists, recommendedArtists } = Musify.ui;
       Musify.render._renderMessage(recommendedSongs, 'Loading Recommended Songs...');
       Musify.render._renderMessage(recommendedAlbums, 'Loading Recommended Albums...');
+      Musify.render._renderMessage(recommendedPlaylists, 'Loading Recommended Playlists...');
       Musify.render._renderMessage(recommendedArtists, 'Loading Recommended Artists...');
 
-      const [songData, albumData, artistData] = await Promise.all([
-        Musify.api._fetch('/search/songs?query=latest hits&limit=20'),
-        Musify.api._fetch('/search/albums?query=top albums&limit=20'),
-        Musify.api._fetch('/search/artists?query=popular artists&limit=20')
+      const [songData, albumData, playlistData, artistData] = await Promise.all([
+        Musify.api._fetch('/search/songs?query=latest hits&limit=30'),
+        Musify.api._fetch('/search/albums?query=top albums&limit=30'),
+        Musify.api._fetch('/search/playlists?query=top playlists&limit=30'),
+        Musify.api._fetch('/search/artists?query=popular artists&limit=30')
       ]);
 
       // Store the fetched data in the state for the player to use
       Musify.state.discover = {
           songs: songData?.data?.results || [],
           albums: albumData?.data?.results || [],
+          playlists: playlistData?.data?.results || [],
           artists: artistData?.data?.results || [],
       };
 
       // Populate the new "Recommended" sections
       Musify.render.populate(recommendedSongs, Musify.state.discover.songs, Musify.render.discoverCard, 'No recommended songs found.', 'Failed to load songs.');
       Musify.render.populate(recommendedAlbums, Musify.state.discover.albums, Musify.render.discoverCard, 'No recommended albums found.', 'Failed to load albums.');
+      Musify.render.populate(recommendedPlaylists, Musify.state.discover.playlists, Musify.render.discoverCard, 'No recommended playlists found.', 'Failed to load playlists.');
       Musify.render.populate(recommendedArtists, Musify.state.discover.artists, Musify.render.discoverCard, 'No recommended artists found.', 'Failed to load artists.');
     },
 
@@ -882,15 +932,44 @@ const Musify = {
         }
 
         // Otherwise, fetch from the API
-        const playlistData = await Musify.api.getPlaylistDetails(playlistId);
+        const playlistData = await Musify.api.getPlaylistDetails(playlistId, 1);
         const data = playlistData?.data;
         if (data && data.songs) {
             Musify.render.playlistHeader(data);
-            Musify.render.populate(playlistSongs, data.songs, Musify.render.songCard, 'This playlist is empty.', 'Could not load songs.');
-            Musify.state.songQueue = data.songs;
+            const initialSongs = data.songs;
+            Musify.render.populate(playlistSongs, initialSongs, Musify.render.songCard, 'This playlist is empty.', 'Could not load songs.');
+            Musify.state.songQueue = [...initialSongs];
+
+            // Fetch all remaining songs if the playlist is paginated
+            if (data.songCount > initialSongs.length) {
+                this.fetchAllPlaylistSongs(playlistId, initialSongs.length, data.songCount);
+            }
         } else {
             Musify.render._renderMessage(playlistSongs, 'Failed to load playlist.', 'error');
         }
+    },
+
+    async fetchAllPlaylistSongs(playlistId, initialCount, totalCount) {
+        const { playlistSongs } = Musify.ui;
+        const loadingIndicator = document.createElement('div');
+        loadingIndicator.className = 'loading';
+        loadingIndicator.textContent = 'Loading more...';
+        playlistSongs.appendChild(loadingIndicator);
+
+        let page = 2; // Start from the second page
+        let fetchedCount = initialCount;
+        while (fetchedCount < totalCount) {
+            const songData = await Musify.api.getPlaylistDetails(playlistId, page);
+            if (songData?.data?.songs && songData.data.songs.length > 0) {
+                Musify.render.append(playlistSongs, songData.data.songs, Musify.render.songCard);
+                Musify.state.songQueue.push(...songData.data.songs);
+                fetchedCount += songData.data.songs.length;
+                page++;
+            } else {
+                break; // Stop if there are no more results or an error occurs
+            }
+        }
+        loadingIndicator.remove();
     },
 
     async showAlbum(albumId) {
@@ -970,6 +1049,51 @@ const Musify = {
   },
 
   utils: {
+    addMobileGestures() {
+        const player = document.querySelector('.bottom-player');
+        let touchStartX = 0;
+        let touchEndX = 0;
+
+        player.addEventListener('touchstart', (event) => {
+            // Ignore touch if it's on a button or the progress bar
+            if (event.target.closest('button, input[type="range"], .mobile-progress-bar')) return;
+            touchStartX = event.changedTouches[0].screenX;
+        }, { passive: true });
+
+        player.addEventListener('touchend', (event) => {
+            if (touchStartX === 0) return; // Touch was ignored
+            touchEndX = event.changedTouches[0].screenX;
+            const deltaX = touchEndX - touchStartX;
+            if (Math.abs(deltaX) > 50) { // Minimum swipe distance
+                if (deltaX < 0) Musify.player.next(); // Swipe left
+                if (deltaX > 0) Musify.player.prev(); // Swipe right
+            }
+            touchStartX = 0; // Reset
+        }, { passive: true });
+
+        // Make mobile progress bar seekable
+        const mobileProgressBar = Musify.ui.mobileProgressBar;
+        const seek = (e) => {
+            const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+            const rect = mobileProgressBar.getBoundingClientRect();
+            let percentage = (clientX - rect.left) / rect.width;
+            percentage = Math.max(0, Math.min(1, percentage)); // Clamp between 0 and 1
+            Musify.ui.audioPlayer.currentTime = Musify.ui.audioPlayer.duration * percentage;
+        };
+
+        let isDragging = false;
+        mobileProgressBar.addEventListener('touchstart', (e) => {
+            isDragging = true;
+            seek(e);
+        }, { passive: true });
+        mobileProgressBar.addEventListener('touchmove', (e) => {
+            if (isDragging) seek(e);
+        }, { passive: true });
+        mobileProgressBar.addEventListener('touchend', () => {
+            isDragging = false;
+        });
+        mobileProgressBar.addEventListener('click', seek);
+    },
     applyRippleEffect(event) {
         const button = event.target.closest('button');
 
