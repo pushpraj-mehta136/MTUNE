@@ -554,6 +554,7 @@ body.dark .scrollable-row::-webkit-scrollbar-track {
   align-items: center;
   box-shadow: var(--glass-shadow);
   padding: 1rem;
+  position: relative; /* For positioning the play button */
 }
 .scrollable-row .song, .scrollable-row .playlist, .scrollable-row .album, .scrollable-row .artist {
     width: 280px; /* Restore fixed width only for items in scrollable rows */
@@ -575,6 +576,42 @@ body.dark .scrollable-row::-webkit-scrollbar-track {
   box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
   flex-shrink: 0;
 }
+.song img {
+    cursor: pointer;
+}
+
+/* Hide play button by default */
+.song .play-btn, .song .options-btn {
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.3s ease;
+}
+
+/* Show buttons on hover (desktop) */
+.song:hover .play-btn, .song:hover .options-btn {
+    opacity: 1;
+    pointer-events: auto;
+}
+
+/* Style for the currently playing song */
+.song.is-playing .play-btn {
+    opacity: 1;
+    pointer-events: auto;
+    background: var(--accent);
+    color: white;
+}
+.song.is-playing .song-duration {
+    display: none;
+}
+
+/* Overlay play button on album art */
+.song .play-btn {
+    position: absolute;
+    top: 50%;
+    left: 40px; /* Center over the 60px image with 1rem padding */
+    transform: translate(-50%, -50%);
+    margin: 0;
+}
 
 /* Dynamic buttons inside cards */
 .song button, .playlist button, .album button, .artist button {
@@ -590,7 +627,6 @@ body.dark .scrollable-row::-webkit-scrollbar-track {
   display: flex;
   align-items: center;
   justify-content: center;
-  margin-left: auto; /* Pushes button to the right */
   flex-shrink: 0; /* Prevent button from shrinking */
 }
 
@@ -616,12 +652,10 @@ body.dark .scrollable-row::-webkit-scrollbar-track {
 }
 
 .song .options-btn {
-    margin-left: auto; /* Push options button to the right */
-    margin-right: 0.25rem;
-}
-
-.song .play-btn {
-    margin-left: 0; /* Remove auto margin */
+    position: absolute;
+    right: 1rem;
+    top: 50%;
+    transform: translateY(-50%);
 }
 
 .player-like-btn {
@@ -1713,45 +1747,6 @@ body.dark .slider:before {
   height: 100%;
 }
 
-/* Context Menu */
-.context-menu {
-    position: fixed;
-    z-index: 1000;
-    background: var(--surface);
-    border: 1px solid var(--glass-border);
-    border-radius: var(--element-radius);
-    box-shadow: var(--glass-shadow);
-    padding: 0.5rem 0;
-    min-width: 200px;
-    backdrop-filter: blur(10px);
-    animation: fadeIn 0.2s ease-out;
-}
-
-.context-menu ul {
-    list-style: none;
-    padding: 0;
-    margin: 0;
-}
-
-.context-menu li {
-    padding: 0.75rem 1.25rem;
-    cursor: pointer;
-    display: flex;
-    align-items: center;
-    gap: 0.75rem;
-}
-
-.context-menu li:hover {
-    background: var(--accent);
-    color: white;
-}
-
-.context-menu .separator {
-    height: 1px;
-    background: var(--glass-border);
-    margin: 0.5rem 0;
-}
-
 /* Custom Notifications / Toasts */
 #notification-container {
     position: fixed;
@@ -1804,6 +1799,69 @@ body.dark .slider:before {
     opacity: 0.5;
     background: var(--accent);
 }
+
+/* Bottom Sheet Context Menu */
+.bottom-sheet {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    z-index: 1100;
+    display: flex;
+    align-items: flex-end;
+    justify-content: center;
+    visibility: hidden;
+    pointer-events: none;
+}
+
+.bottom-sheet.active {
+    visibility: visible;
+    pointer-events: auto;
+}
+
+.bottom-sheet-overlay {
+    position: absolute;
+    width: 100%;
+    height: 100%;
+    background: rgba(0,0,0,0.5);
+    opacity: 0;
+    transition: opacity 0.4s ease;
+}
+
+.bottom-sheet.active .bottom-sheet-overlay {
+    opacity: 1;
+}
+
+.bottom-sheet-content {
+    background: var(--primary-light);
+    width: 100%;
+    max-width: 600px;
+    border-top-left-radius: var(--card-radius);
+    border-top-right-radius: var(--card-radius);
+    padding: 1rem;
+    box-shadow: 0 -5px 30px rgba(0,0,0,0.2);
+    transform: translateY(100%);
+    transition: transform 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+    z-index: 1;
+}
+
+.bottom-sheet.active .bottom-sheet-content {
+    transform: translateY(0);
+}
+
+.bottom-sheet ul { list-style: none; }
+.bottom-sheet li {
+    padding: 1rem 1.2rem;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    border-radius: var(--element-radius);
+    transition: background 0.2s ease;
+}
+.bottom-sheet li:hover { background: var(--glass-bg); }
+.bottom-sheet .separator { height: 1px; background: var(--glass-border); margin: 0.5rem 0; }
 
 /* Lyrics Container */
 .lyrics-container {

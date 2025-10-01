@@ -167,6 +167,7 @@ const Musify = {
     });
     // Add ripple effect to all buttons
     this.utils.addQueueDragHandlers();
+    this.utils.addSongCardInteractionHandlers();
     document.addEventListener('click', this.utils.applyRippleEffect);
 
 
@@ -242,6 +243,7 @@ const Musify = {
       const div = document.createElement('div');
       div.className = 'song';
 
+      div.dataset.songId = song.id;
       const img = document.createElement('img');
       img.src = this._getImageUrl(song.image);
       img.alt = this._decode(song.title);
@@ -267,10 +269,11 @@ const Musify = {
       durationSpan.className = 'song-duration';
       durationSpan.textContent = Musify.player.formatTime(song.duration || 0);
       const contextBtn = inQueue 
-        ? this._createButton('options-btn', `Musify.utils.removeFromQueue(event, '${song.id}')`, 'Remove from queue', 'fas fa-times')
-        : this._createButton('options-btn', `Musify.utils.showSongContextMenu(event, '${song.id}')`, 'More options', 'fas fa-ellipsis-v');
-      const playBtn = this._createButton('play-btn', `Musify.player.playSongFromCard(event, '${song.id}')`, `Play ${song.title}`, 'fas fa-play');
-      div.append(img, infoDiv, durationSpan, contextBtn, playBtn);
+        ? this._createButton('options-btn remove-from-queue-btn', `Musify.utils.removeFromQueue(event, '${song.id}')`, 'Remove from queue', 'fas fa-times')
+        : this._createButton('options-btn', ``, 'More options', 'fas fa-ellipsis-v'); // Onclick handled by event listener
+      
+      const playBtn = this._createButton('play-btn', ``, `Play ${song.title}`, 'fas fa-play'); // Onclick handled by event listener
+      div.append(img, playBtn, infoDiv, durationSpan);
       return div;
     },
     playlistCard(pl) {
@@ -596,6 +599,10 @@ const Musify = {
       document.querySelectorAll('#queueList .song').forEach(el => el.classList.remove('is-playing'));
       const currentQueueItem = document.querySelector(`#queueList .song[data-song-id="${song.id}"]`);
       if (currentQueueItem) currentQueueItem.classList.add('is-playing');
+      // Also update the main song lists
+      document.querySelectorAll('.main-content .song').forEach(el => el.classList.remove('is-playing'));
+      const currentSongItem = document.querySelector(`.main-content .song[data-song-id="${song.id}"]`);
+      if (currentSongItem) currentSongItem.classList.add('is-playing');
     },
     updateMediaSession(song) {
         if ('mediaSession' in navigator) {
@@ -1241,6 +1248,64 @@ const Musify = {
             button.appendChild(circle);
         }
     },
+    addSongCardInteractionHandlers() {
+        const mainContent = Musify.ui.mainContent;
+        let longPressTimer;
+        const longPressDuration = 500; // 500ms for long press
+
+        mainContent.addEventListener('mousedown', e => {
+            const songCard = e.target.closest('.song');
+            if (songCard) {
+                e.preventDefault(); // Prevent default browser actions like text selection
+            }
+        });
+
+        mainContent.addEventListener('touchstart', e => {
+            const songCard = e.target.closest('.song');
+            if (!songCard) return;
+            longPressTimer = setTimeout(() => {
+                const songId = songCard.dataset.songId;
+                this.showSongContextMenu(e, songId);
+                longPressTimer = null; // Prevent click from firing
+            }, longPressDuration);
+        }, { passive: true });
+
+        const cancelLongPress = () => {
+            if (longPressTimer) {
+                clearTimeout(longPressTimer);
+                longPressTimer = undefined;
+            }
+        };
+        mainContent.addEventListener('touchend', cancelLongPress);
+        mainContent.addEventListener('touchmove', cancelLongPress);
+
+        mainContent.addEventListener('click', e => {
+            if (longPressTimer === undefined) return; // Long press already handled
+            cancelLongPress();
+
+            const songCard = e.target.closest('.song');
+            if (!songCard) return;
+            
+            const songId = songCard.dataset.songId;
+            if (e.target.closest('.remove-from-queue-btn')) return; // Let the remove button do its job
+
+            // Play if image is clicked, otherwise show context menu
+            if (e.target.closest('img') || e.target.closest('.play-btn')) {
+                Musify.player.playSongFromCard(e, songId);
+            } else {
+                this.showSongContextMenu(e, songId);
+            }
+        });
+
+        mainContent.addEventListener('contextmenu', e => {
+            const songCard = e.target.closest('.song');
+            if (songCard) {
+                e.preventDefault();
+                const songId = songCard.dataset.songId;
+                this.showSongContextMenu(e, songId);
+            }
+        });
+    },
     addQueueDragHandlers() {
         const queueList = Musify.ui.queueList;
         let draggedItem = null;
@@ -1354,41 +1419,38 @@ const Musify = {
             span.classList.remove('marquee');
         }
     },
-    showSongContextMenu(event, songId) {
-        event.stopPropagation(); // Prevent card click
-        this.removeContextMenu(); // Remove any existing menu
+    showSongContextMenu(e, songId) {
+        e.stopPropagation();
 
         const song = Musify.state.songQueue.find(s => s.id === songId) || Musify.state.history.find(s => s.id === songId) || Musify.state.favourites.find(s => s.id === songId);
         if (!song) return;
 
-        const menu = document.createElement('div');
-        menu.className = 'context-menu';
+        const sheetContent = document.querySelector('#bottomSheet .bottom-sheet-content');
+        sheetContent.innerHTML = ''; // Clear previous content
         
-        const isFavourited = Musify.utils.isFavourited(songId); // Corrected reference
+        const isFavourited = Musify.utils.isFavourited(songId);
         let playlistItems = '';
         if (Musify.state.userPlaylists.length > 0) {
-            playlistItems = Musify.state.userPlaylists.map(p => `<li onclick="addSongToPlaylist('${songId}', '${p.id}')"><i class="fas fa-list"></i> Add to ${p.name}</li>`).join('');
+            playlistItems = Musify.state.userPlaylists.map(p => `<li onclick="Musify.utils.addSongToPlaylist('${songId}', '${p.id}'); Musify.utils.hideBottomSheet();"><i class="fas fa-list"></i> Add to ${p.name}</li>`).join('');
         }
 
-        menu.innerHTML = `
+        sheetContent.innerHTML = `
             <ul>
-                <li onclick="Musify.utils.startRadio('${songId}')"><i class="fas fa-broadcast-tower"></i> Start Radio</li>
-                <li onclick="Musify.utils.downloadSong('${songId}')"><i class="fas fa-download"></i> Download</li>
+                <li onclick="Musify.utils.startRadio('${songId}'); Musify.utils.hideBottomSheet();"><i class="fas fa-broadcast-tower"></i> Start Radio</li>
+                <li onclick="Musify.utils.downloadSong('${songId}'); Musify.utils.hideBottomSheet();"><i class="fas fa-download"></i> Download</li>
                 ${playlistItems ? '<li class="separator"></li>' : ''}
                 ${playlistItems}
-                <li onclick="Musify.utils.toggleFavourite('${songId}')">
+                <li onclick="Musify.utils.toggleFavourite('${songId}'); Musify.utils.hideBottomSheet();">
                     <i class="fas fa-heart" style="color: ${isFavourited ? 'var(--accent)' : 'inherit'}"></i>
                     ${isFavourited ? 'Remove from Favourites' : 'Add to Favourites'}
                 </li>
             </ul>
         `;
 
-        document.body.appendChild(menu);
-        menu.style.top = `${event.pageY}px`;
-        menu.style.left = `${event.pageX}px`;
-
-        // Add a listener to close the menu when clicking elsewhere
-        document.addEventListener('click', this.removeContextMenu, { once: true });
+        document.getElementById('bottomSheet').classList.add('active');
+    },
+    hideBottomSheet() {
+        document.getElementById('bottomSheet').classList.remove('active');
     },
     showPlaylistContextMenu(event, playlistId) {
         event.stopPropagation();
