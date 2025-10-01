@@ -103,6 +103,23 @@ const Musify = {
       endlessQueueToggle: document.getElementById('endlessQueueToggle'),
       dynamicThemeToggle: document.getElementById('dynamicThemeToggle'),
       repeatIcon: document.getElementById('repeatIcon'),
+      // Expanded Player UI
+      nowPlayingView: document.getElementById('nowPlayingView'),
+      nowPlayingImg: document.getElementById('nowPlayingImg'),
+      nowPlayingTitle: document.getElementById('nowPlayingTitle'),
+      nowPlayingArtist: document.getElementById('nowPlayingArtist'),
+      nowPlayingProgressBar: document.getElementById('nowPlayingProgressBar'),
+      nowPlayingCurrentTime: document.getElementById('nowPlayingCurrentTime'),
+      nowPlayingTotalDuration: document.getElementById('nowPlayingTotalDuration'),
+      nowPlayingPlayPauseIcon: document.getElementById('nowPlayingPlayPauseIcon'),
+      nowPlayingShuffleBtn: document.getElementById('nowPlayingShuffleBtn'),
+      nowPlayingRepeatBtn: document.getElementById('nowPlayingRepeatBtn'),
+      nowPlayingRepeatIcon: document.getElementById('nowPlayingRepeatIcon'),
+      nowPlayingVolumeSlider: document.getElementById('nowPlayingVolumeSlider'),
+      lyricsContainer: document.getElementById('lyricsContainer'),
+      lyricsContent: document.getElementById('lyricsContent'),
+      queueContainer: document.getElementById('queueContainer'),
+      queueList: document.getElementById('queueList'),
     };
     this.ui.volumeSlider = document.getElementById('volumeSlider');
 
@@ -123,14 +140,22 @@ const Musify = {
         this.player.updateProgressBar();
     });
     this.ui.progressBar.addEventListener('input', () => this.player.seek());
+    this.ui.nowPlayingProgressBar.addEventListener('input', (e) => this.player.seek(e.target));
     this.ui.searchBar.addEventListener('keypress', e => { if (e.key === "Enter") this.navigation.triggerSearch(); });
-    this.ui.searchBar.addEventListener('input', () => this.utils.debounce(this.navigation.showSearchSuggestions, 300)());
+    this.ui.searchBar.addEventListener('input', () => this.utils.debounce(this.navigation.showSearchSuggestions.bind(this.navigation), 300)());
     document.addEventListener('click', (e) => { if (!e.target.closest('.search-input-container')) this.ui.searchSuggestions.classList.remove('active'); });
     window.addEventListener('beforeunload', () => this.utils.savePlaybackState());
     this.ui.volumeSlider.addEventListener('input', (e) => this.player.setVolume(e.target.value));
+    this.ui.nowPlayingVolumeSlider.addEventListener('input', (e) => this.player.setVolume(e.target.value));
     this.ui.audioQuality.addEventListener('change', (e) => this.utils.setAudioQuality(e.target.value));
+    document.querySelectorAll('.accordion-header').forEach(header => {
+        header.addEventListener('click', () => {
+            header.parentElement.classList.toggle('active');
+        });
+    });
     // Add mobile-specific gesture listeners
     this.utils.addMobileGestures();
+    this.utils.addNowPlayingGestures();
 
     // Use event delegation for marquee effect and infinite scroll
     this.ui.mainContent.addEventListener('mouseover', this.utils.handleMarquee);
@@ -141,6 +166,7 @@ const Musify = {
         }
     });
     // Add ripple effect to all buttons
+    this.utils.addQueueDragHandlers();
     document.addEventListener('click', this.utils.applyRippleEffect);
 
 
@@ -154,6 +180,10 @@ const Musify = {
     this.ui.repeatIcon.className = this.state.repeatMode === 'one' ? 'fas fa-1' : 'fas fa-repeat';
     if (!this.state.songQueue[this.state.currentSongIndex]) {
         this.ui.playPauseIcon.className = 'fas fa-play';
+    } else {
+        this.ui.nowPlayingShuffleBtn.classList.toggle('active', this.state.isShuffle);
+        this.ui.nowPlayingRepeatBtn.classList.toggle('active', this.state.repeatMode !== 'off');
+        this.ui.nowPlayingRepeatIcon.className = this.ui.repeatIcon.className;
     }
     this.navigation.showSection('discover');
   },
@@ -226,13 +256,21 @@ const Musify = {
       small.textContent = this._decode(song.primaryArtists || song.artists?.primary?.map(a => a.name).join(', ') || 'Unknown Artist');
       infoDiv.append(strong, small);
 
+      // Add draggable attribute and data-id for queue items
+      const inQueue = options.inQueue;
+      if (inQueue) {
+          div.draggable = true;
+          div.dataset.songId = song.id;
+      }
+
       const durationSpan = document.createElement('span');
       durationSpan.className = 'song-duration';
       durationSpan.textContent = Musify.player.formatTime(song.duration || 0);
-      const optionsBtn = this._createButton('options-btn', `Musify.utils.showSongContextMenu(event, '${song.id}')`, 'More options', 'fas fa-ellipsis-v');
+      const contextBtn = inQueue 
+        ? this._createButton('options-btn', `Musify.utils.removeFromQueue(event, '${song.id}')`, 'Remove from queue', 'fas fa-times')
+        : this._createButton('options-btn', `Musify.utils.showSongContextMenu(event, '${song.id}')`, 'More options', 'fas fa-ellipsis-v');
       const playBtn = this._createButton('play-btn', `Musify.player.playSongFromCard(event, '${song.id}')`, `Play ${song.title}`, 'fas fa-play');
-
-      div.append(img, infoDiv, durationSpan, optionsBtn, playBtn);
+      div.append(img, infoDiv, durationSpan, contextBtn, playBtn);
       return div;
     },
     playlistCard(pl) {
@@ -536,13 +574,28 @@ const Musify = {
       }
     },
     updateInfo(song) {
-      Musify.ui.currentSongTitle.textContent = Musify.render._decode(song.name || song.title || 'Unknown Title');
+      const title = Musify.render._decode(song.name || song.title || 'Unknown Title');
+      Musify.ui.currentSongTitle.innerHTML = `<span>${title}</span>`;
       Musify.ui.currentSongArtist.textContent = Musify.render._decode(song.primaryArtists || song.artists?.primary?.map(a => a.name).join(', ') || 'Unknown Artist');
       Musify.ui.currentSongImg.src = Musify.render._getImageUrl(song.image);
       Musify.ui.likeBtn.classList.toggle('active', Musify.utils.isFavourited(song.id));
       Musify.ui.playPauseIcon.className = Musify.state.isPlaying ? 'fas fa-pause' : 'fas fa-play';
-      Musify.ui.mobilePlayPauseIcon.className = Musify.state.isPlaying ? 'fas fa-pause' : 'fas fa-play';
       Musify.utils.updatePlayerTheme(Musify.render._getImageUrl(song.image));
+
+      // Update Now Playing View
+      const isPlaying = Musify.state.isPlaying;
+      Musify.ui.mobilePlayPauseIcon.className = isPlaying ? 'fas fa-pause' : 'fas fa-play';
+      Musify.ui.nowPlayingPlayPauseIcon.className = isPlaying ? 'fas fa-pause' : 'fas fa-play';
+
+      Musify.ui.nowPlayingImg.src = Musify.render._getImageUrl(song.image);
+      Musify.ui.nowPlayingTitle.textContent = title;
+      Musify.ui.nowPlayingArtist.textContent = Musify.render._decode(song.primaryArtists || song.artists?.primary?.map(a => a.name).join(', ') || 'Unknown Artist');
+      document.querySelector('.now-playing-bg').style.backgroundImage = `url(${Musify.render._getImageUrl(song.image)})`;
+
+      // Highlight current song in queue view
+      document.querySelectorAll('#queueList .song').forEach(el => el.classList.remove('is-playing'));
+      const currentQueueItem = document.querySelector(`#queueList .song[data-song-id="${song.id}"]`);
+      if (currentQueueItem) currentQueueItem.classList.add('is-playing');
     },
     updateMediaSession(song) {
         if ('mediaSession' in navigator) {
@@ -571,10 +624,12 @@ const Musify = {
     },
     updatePlayPauseIcons(isPlaying) {
         const { playPauseIcon, mobilePlayPauseIcon } = Musify.ui;
-        const action = isPlaying ? 'play' : 'pause';
-        const opposite = isPlaying ? 'pause' : 'play';
-        if (playPauseIcon) playPauseIcon.classList.replace(`fa-${action}`, `fa-${opposite}`);
-        if (mobilePlayPauseIcon) mobilePlayPauseIcon.classList.replace(`fa-${action}`, `fa-${opposite}`);
+        const iconClass = isPlaying ? 'fa-pause' : 'fa-play';
+        if (playPauseIcon) playPauseIcon.className = `fas ${iconClass}`;
+        if (mobilePlayPauseIcon) mobilePlayPauseIcon.className = `fas ${iconClass}`;
+        if (Musify.ui.nowPlayingPlayPauseIcon) {
+            Musify.ui.nowPlayingPlayPauseIcon.className = `fas ${iconClass}`;
+        }
     },
     next() {
       // Mobile-only: if player is compact, show next/prev buttons briefly on song change
@@ -605,11 +660,13 @@ const Musify = {
     },
     toggleShuffle() {
       Musify.state.isShuffle = !Musify.state.isShuffle;
-      Musify.ui.shuffleBtn.classList.toggle('active', Musify.state.isShuffle);
-      Musify.ui.shuffleBtn.title = `Shuffle ${Musify.state.isShuffle ? 'On' : 'Off'}`;
+      const isActive = Musify.state.isShuffle;
+      Musify.ui.shuffleBtn.classList.toggle('active', isActive);
+      Musify.ui.nowPlayingShuffleBtn.classList.toggle('active', isActive);
+      Musify.ui.shuffleBtn.title = `Shuffle ${isActive ? 'On' : 'Off'}`;
     },
     toggleRepeat() {
-      const { repeatBtn, repeatIcon } = Musify.ui;
+      const { repeatBtn, repeatIcon, nowPlayingRepeatBtn, nowPlayingRepeatIcon } = Musify.ui;
       const state = Musify.state;
       if (state.repeatMode === 'off') {
         state.repeatMode = 'all';
@@ -626,26 +683,35 @@ const Musify = {
         repeatIcon.className = 'fas fa-repeat';
         repeatBtn.title = 'Repeat Off';
       }
+      // Sync expanded player
+      nowPlayingRepeatBtn.classList.toggle('active', state.repeatMode !== 'off');
+      nowPlayingRepeatIcon.className = repeatIcon.className;
     },
     updateProgressBar() {
-      const { audioPlayer, progressBar, mobileProgressBar, currentTime, totalDuration } = Musify.ui;
+      const { audioPlayer, progressBar, mobileProgressBar, currentTime, totalDuration, nowPlayingProgressBar, nowPlayingCurrentTime, nowPlayingTotalDuration } = Musify.ui;
       if (!audioPlayer.duration) return;
       const progress = (audioPlayer.currentTime / audioPlayer.duration) * 100;
       const safeProgress = isNaN(progress) ? 0 : progress;
       progressBar.value = safeProgress;
+      nowPlayingProgressBar.value = safeProgress;
       if (mobileProgressBar) mobileProgressBar.style.width = `${safeProgress}%`;
       currentTime.textContent = this.formatTime(audioPlayer.currentTime);
       totalDuration.textContent = this.formatTime(audioPlayer.duration);
+      nowPlayingCurrentTime.textContent = this.formatTime(audioPlayer.currentTime);
+      nowPlayingTotalDuration.textContent = this.formatTime(audioPlayer.duration);
     },
-    seek(fromNowPlaying = false) {
-      const { audioPlayer, progressBar } = Musify.ui; // nowPlayingProgressBar removed
-      const sourceProgressBar = progressBar;
+    seek(sourceProgressBar) {
+      const { audioPlayer, progressBar, nowPlayingProgressBar } = Musify.ui;
+      // If no specific progress bar is passed, default to the main one
+      sourceProgressBar = sourceProgressBar || progressBar;
       if (!audioPlayer.duration) return;
       audioPlayer.currentTime = (sourceProgressBar.value / 100) * audioPlayer.duration;
     },
     setVolume(value) {
         Musify.ui.audioPlayer.volume = value;
         localStorage.setItem('musify_volume', value);
+        Musify.ui.volumeSlider.value = value;
+        Musify.ui.nowPlayingVolumeSlider.value = value;
     },
     formatTime(seconds) {
         const minutes = Math.floor(seconds / 60);
@@ -735,6 +801,25 @@ const Musify = {
         }
     },
 
+    toggleNowPlayingView(show) {
+        const { nowPlayingView } = Musify.ui;
+        nowPlayingView.classList.toggle('active', show);
+    },
+
+    toggleLyrics(show) {
+        const { lyricsContainer } = Musify.ui;
+        lyricsContainer.classList.toggle('active', show);
+    },
+
+    toggleQueueView(show) {
+        const { queueContainer, queueList } = Musify.ui;
+        queueContainer.classList.toggle('active', show);
+        if (show) {
+            Musify.render.populate(queueList, Musify.state.songQueue, (s) => Musify.render.songCard(s, { inQueue: true }), 'The queue is empty.', 'Could not load queue.');
+            const currentSong = Musify.state.songQueue[Musify.state.currentSongIndex];
+            if (currentSong) this.player.updateInfo(currentSong); // Re-apply highlight
+        }
+    },
 
     async loadDiscover() {
       const { recommendedSongs, recommendedAlbums, recommendedPlaylists, recommendedArtists } = Musify.ui;
@@ -1138,6 +1223,98 @@ const Musify = {
         const button = event.target.closest('button');
 
         if (button) {
+            // Prevent ripple on settings buttons if desired
+            if (button.closest('.settings-option')) return;
+
+            const circle = document.createElement('span');
+            const diameter = Math.max(button.clientWidth, button.clientHeight);
+            const radius = diameter / 2;
+
+            circle.style.width = circle.style.height = `${diameter}px`;
+            circle.style.left = `${event.clientX - button.getBoundingClientRect().left - radius}px`;
+            circle.style.top = `${event.clientY - button.getBoundingClientRect().top - radius}px`;
+            circle.classList.add('ripple');
+
+            const ripple = button.getElementsByClassName('ripple')[0];
+            if (ripple) ripple.remove();
+            
+            button.appendChild(circle);
+        }
+    },
+    addQueueDragHandlers() {
+        const queueList = Musify.ui.queueList;
+        let draggedItem = null;
+
+        queueList.addEventListener('dragstart', e => {
+            draggedItem = e.target.closest('.song');
+            if (!draggedItem) return;
+            // Add a slight delay to allow the browser to create the drag image
+            setTimeout(() => {
+                if (draggedItem) draggedItem.classList.add('dragging');
+            }, 0);
+        });
+
+        queueList.addEventListener('dragend', () => {
+            if (draggedItem) {
+                draggedItem.classList.remove('dragging');
+                draggedItem = null;
+            }
+        });
+
+        queueList.addEventListener('dragover', e => {
+            e.preventDefault();
+            const target = e.target.closest('.song');
+            if (target && target !== draggedItem) {
+                const rect = target.getBoundingClientRect();
+                const next = (e.clientY - rect.top) / (rect.bottom - rect.top) > 0.5;
+                if (next) {
+                    queueList.insertBefore(draggedItem, target.nextSibling);
+                } else {
+                    queueList.insertBefore(draggedItem, target);
+                }
+            }
+        });
+
+        queueList.addEventListener('drop', e => {
+            e.preventDefault();
+            if (draggedItem) {
+                draggedItem.classList.remove('dragging');
+                const newOrderIds = [...queueList.querySelectorAll('.song')].map(el => el.dataset.songId);
+                const newQueue = newOrderIds.map(id => Musify.state.songQueue.find(s => s.id === id));
+                
+                // Update state and current index
+                const currentSongId = Musify.state.songQueue[Musify.state.currentSongIndex]?.id;
+                Musify.state.songQueue = newQueue;
+                Musify.state.currentSongIndex = newQueue.findIndex(s => s.id === currentSongId);
+                
+                draggedItem = null;
+            }
+        });
+    },
+    addNowPlayingGestures() {
+        const artElement = Musify.ui.nowPlayingImg;
+        let touchStartX = 0;
+
+        artElement.addEventListener('touchstart', e => {
+            touchStartX = e.changedTouches[0].screenX;
+        }, { passive: true });
+
+        artElement.addEventListener('touchend', e => {
+            if (touchStartX === 0) return;
+            const touchEndX = e.changedTouches[0].screenX;
+            const deltaX = touchEndX - touchStartX;
+
+            if (Math.abs(deltaX) > 60) { // Minimum swipe distance
+                if (deltaX < 0) Musify.player.next(); // Swipe Left
+                else Musify.player.prev(); // Swipe Right
+            }
+            touchStartX = 0; // Reset
+        }, { passive: true });
+    },
+    applyRippleEffect(event) {
+        const button = event.target.closest('button');
+
+        if (button) {
             const circle = document.createElement('span');
             const diameter = Math.max(button.clientWidth, button.clientHeight);
             const radius = diameter / 2;
@@ -1259,6 +1436,21 @@ const Musify = {
     isFavourited(songId) {
         return Musify.state.favourites.some(s => s.id === songId);
     },
+    removeFromQueue(event, songId) {
+        event.stopPropagation();
+        const state = Musify.state;
+        const indexToRemove = state.songQueue.findIndex(s => s.id === songId);
+
+        if (indexToRemove > -1) {
+            state.songQueue.splice(indexToRemove, 1);
+            // Adjust current index if needed
+            if (indexToRemove < state.currentSongIndex) {
+                state.currentSongIndex--;
+            }
+            // Re-render the queue
+            Musify.navigation.toggleQueueView(true);
+        }
+    },
     toggleFavourite(songId) {
         const song = Musify.state.songQueue.find(s => s.id === songId) || Musify.state.history.find(s => s.id === songId) || Musify.state.favourites.find(s => s.id === songId);
         if (!song) return;
@@ -1282,7 +1474,7 @@ const Musify = {
       };
 
       if (!imageUrl || !window.ColorThief || !Musify.state.dynamicTheme) {
-          if (!document.body.classList.contains('dark')) resetTheme();
+          resetTheme();
           return;
       }
 
@@ -1357,6 +1549,7 @@ const Musify = {
         if (volume !== null) {
             const volumeValue = parseFloat(volume);
             Musify.ui.volumeSlider.value = volumeValue;
+            Musify.ui.nowPlayingVolumeSlider.value = volumeValue;
             Musify.player.setVolume(volumeValue);
         }
     },
@@ -1592,6 +1785,13 @@ const Musify = {
             this.saveFavourites();
             Musify.utils.showNotification('Favourites cleared.', 'success');
             if (Musify.state.navigation.currentSection === 'favourites') Musify.navigation.loadFavourites();
+        }
+    },
+    clearQueue() {
+        if (confirm('Are you sure you want to clear the queue?')) {
+            Musify.state.songQueue = [Musify.state.songQueue[Musify.state.currentSongIndex]].filter(Boolean);
+            Musify.state.currentSongIndex = Musify.state.songQueue.length > 0 ? 0 : -1;
+            Musify.navigation.toggleQueueView(true); // Refresh view
         }
     },
     clearAllData() {

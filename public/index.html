@@ -175,75 +175,88 @@
 
       <section id="settings" class="content-section">
         <h1>Settings</h1>
-        <div class="settings-group">
-          <h2>Appearance</h2>
-          <div class="settings-option">
-            <div><h3>Dark Mode</h3><p>Toggle between light and dark themes.</p></div>
-            <label class="toggle-switch"><input type="checkbox" onchange="toggleDarkMode()"><span class="slider"></span></label>
+        <div class="settings-accordion">
+          <div class="accordion-item">
+            <button class="accordion-header">Appearance</button>
+            <div class="accordion-content">
+              <div class="settings-option">
+                <div><h3>Dark Mode</h3><p>Toggle between light and dark themes</p></div>
+                <label class="toggle-switch"><input type="checkbox" onchange="toggleDarkMode()"><span class="slider"></span></label>
+              </div>
+              <div class="settings-option">
+                <div><h3>Dynamic Theming</h3><p>Change player theme based on album art</p></div>
+                <label class="toggle-switch"><input type="checkbox" id="dynamicThemeToggle" onchange="toggleDynamicTheme(this.checked)" checked><span class="slider"></span></label>
+              </div>
+            </div>
           </div>
-          <div class="settings-option">
-            <div><h3>Dynamic Theming</h3><p>Change player theme based on album art.</p></div>
-            <label class="toggle-switch"><input type="checkbox" id="dynamicThemeToggle" onchange="toggleDynamicTheme(this.checked)" checked><span class="slider"></span></label>
-          </div>
-        </div>
 
-        <div class="settings-group">
-          <h2>Playback</h2>
-          <div class="settings-option">
-            <div><h3>Audio Quality</h3><p>Set your preferred streaming quality.</p></div>
-            <select id="audioQuality" class="settings-select">
-              <option value="320kbps" selected>High (320kbps)</option>
-              <option value="160kbps">Medium (160kbps)</option>
-              <option value="128kbps">Standard (128kbps)</option>
-            </select>
+          <div class="accordion-item">
+            <button class="accordion-header">Playback</button>
+            <div class="accordion-content">
+              <div class="settings-option">
+                <div><h3>Audio Quality</h3><p>Set your preferred audio quality</p></div>
+                <select id="audioQuality" class="settings-select">
+                  <option value="320kbps" selected>High (320kbps)</option>
+                  <option value="160kbps">Medium (160kbps)</option>
+                  <option value="128kbps">Standard (128kbps)</option>
+                </select>
+              </div>
+              <div class="settings-option">
+                <div><h3>Endless Queue</h3><p>Automatically add similar songs when your queue ends</p></div>
+                <label class="toggle-switch"><input type="checkbox" id="endlessQueueToggle" onchange="toggleEndlessQueue(this.checked)" checked><span class="slider"></span></label>
+              </div>
+            </div>
           </div>
-          <div class="settings-option">
-            <div><h3>Endless Queue</h3><p>Automatically add similar songs when your queue ends.</p></div>
-            <label class="toggle-switch"><input type="checkbox" id="endlessQueueToggle" onchange="toggleEndlessQueue(this.checked)" checked><span class="slider"></span></label>
-          </div>
-        </div>
 
-        <div class="settings-group">
-          <h2>Downloads</h2>
-          <div class="settings-option">
-            <div><h3>Download Location</h3><p>Choose where to save your music (requires browser permission).</p></div>
-            <button class="settings-btn" onclick="Musify.utils.selectDownloadFolder()"><i class="fas fa-folder-open"></i> Choose Folder</button>
+          <div class="accordion-item">
+            <button class="accordion-header">Downloads</button>
+            <div class="accordion-content">
+              <div class="settings-option">
+                <div><h3>Download Location</h3><p>Choose where to save your music. Your browser will ask for permission.</p></div>
+                <button class="settings-btn" onclick="Musify.utils.selectDownloadFolder()"><i class="fas fa-folder-open"></i> Choose Folder</button>
+              </div>
+            </div>
           </div>
-        </div>
 
-        <div class="settings-group">
-          <h2>Data Management</h2>
-          <div class="settings-option">
-            <div><h3>Clear Listening History</h3><p>This will permanently delete your listening history.</p></div>
-            <button class="settings-btn danger-btn" onclick="clearHistory()"><i class="fas fa-trash"></i> Clear History</button>
+          <div class="accordion-item">
+            <button class="accordion-header">Data Management</button>
+            <div class="accordion-content">
+              <div class="settings-option">
+                <div><h3>Clear Listening History</h3><p>This will permanently delete your listening history.</p></div>
+                <button class="settings-btn danger-btn" onclick="clearHistory()"><i class="fas fa-trash"></i> Clear History</button>
+              </div>
+              <div class="settings-option">
+                <div><h3>Clear Favourites</h3><p>This will permanently delete all your favourite songs.</p></div>
+                <button class="settings-btn danger-btn" onclick="clearFavourites()"><i class="fas fa-trash"></i> Clear Favourites</button>
+              </div>
+              <div class="settings-option">
+                <div><h3>Reset All Data</h3><p>This will delete all history, favourites, and playlists.</p></div>
+                <button class="settings-btn danger-btn reset-btn" onclick="clearAllData()"><i class="fas fa-exclamation-triangle"></i> Reset App</button>
+              </div>
+            </div>
           </div>
-          <div class="settings-option">
-            <div><h3>Clear Favourites</h3><p>This will permanently delete all your favourite songs.</p></div>
-            <button class="settings-btn danger-btn" onclick="clearFavourites()"><i class="fas fa-trash"></i> Clear Favourites</button>
-          </div>
-          <div class="settings-option">
-            <div><h3>Reset All Data</h3><p>This will delete all history, favourites, and playlists.</p></div>
-            <button class="settings-btn danger-btn reset-btn" onclick="clearAllData()"><i class="fas fa-exclamation-triangle"></i> Reset App</button>
-          </div>
-        </div>
 
-        <div class="settings-group">
-          <h2>General</h2>
-          <div class="settings-option">
-            <div><h3>Notifications</h3><p>Enable or disable app notifications.</p></div>
-            <label class="toggle-switch">
-              <input type="checkbox" id="notificationsToggle" onchange="toggleNotifications(this.checked)" checked>
-              <span class="slider"></span>
-            </label>
+          <div class="accordion-item">
+            <button class="accordion-header">General</button>
+            <div class="accordion-content">
+              <div class="settings-option">
+                <div><h3>Notifications</h3><p>Enable or disable app notifications</p></div>
+                <label class="toggle-switch">
+                  <input type="checkbox" id="notificationsToggle" onchange="toggleNotifications(this.checked)" checked>
+                  <span class="slider"></span>
+                </label>
+              </div>
+            </div>
+          </div>
         </div>
       </section>
     </main>
 
     <footer class="bottom-player">
-      <div class="player-song-info">
-          <img id="currentSongImg" alt="Album Art" src="default_cover.jpg" />
+      <div class="player-song-info" onclick="Musify.navigation.toggleNowPlayingView(true)">
+          <img id="currentSongImg" alt="Album Art" src="default_cover.jpg"/>
           <div class="player-text">
-            <div id="currentSongTitle">No song playing</div>
+            <div id="currentSongTitle"><span>No song playing</span></div>
             <div id="currentSongArtist"></div>
           </div>
           <button id="likeBtn" class="player-like-btn" onclick="likeCurrentSong()" title="Add to Favourites"><i class="far fa-heart"></i></button>
@@ -277,6 +290,63 @@
       <audio id="audioPlayer"></audio>
     </footer>
   </div>
+
+  <!-- Expanded Now Playing View -->
+  <div id="nowPlayingView" class="now-playing-view">
+    <div class="now-playing-bg"></div>
+    <div class="now-playing-content">
+      <button class="collapse-btn" onclick="Musify.navigation.toggleNowPlayingView(false)"><i class="fas fa-chevron-down"></i></button>
+      
+      <div class="now-playing-art">
+        <img id="nowPlayingImg" src="default_cover.jpg" alt="Album Art"/>
+      </div>
+
+      <div class="now-playing-info">
+        <h2 id="nowPlayingTitle">No song playing</h2>
+        <p id="nowPlayingArtist">Select a song to start</p>
+      </div>
+
+      <div class="now-playing-progress">
+        <span id="nowPlayingCurrentTime">0:00</span>
+        <input id="nowPlayingProgressBar" type="range" min="0" max="100" value="0" aria-label="Playback progress" />
+        <span id="nowPlayingTotalDuration">0:00</span>
+      </div>
+
+      <div class="now-playing-controls">
+        <button onclick="toggleShuffle()" id="nowPlayingShuffleBtn" title="Shuffle Off"><i class="fas fa-shuffle"></i></button>
+        <button class="prev-btn" onclick="prevSong()" id="nowPlayingPrevBtn" title="Previous"><i class="fas fa-backward-step"></i></button>
+        <button class="play-btn" onclick="togglePlayPause()" id="nowPlayingPlayPauseBtn" title="Play/Pause"><i id="nowPlayingPlayPauseIcon" class="fas fa-play"></i></button>
+        <button class="next-btn" onclick="nextSong()" id="nowPlayingNextBtn" title="Next"><i class="fas fa-forward-step"></i></button>
+        <button onclick="toggleRepeat()" id="nowPlayingRepeatBtn" title="Repeat Off"><i id="nowPlayingRepeatIcon" class="fas fa-repeat"></i></button>
+      </div>
+
+      <div class="now-playing-extra-controls">
+        <div class="volume-control">
+          <i class="fas fa-volume-low"></i>
+          <input id="nowPlayingVolumeSlider" type="range" min="0" max="1" step="0.01" value="1" aria-label="Volume control" />
+          <i class="fas fa-volume-high"></i>
+        </div>
+        <div class="now-playing-actions">
+          <button title="Show Queue" onclick="Musify.navigation.toggleQueueView(true)"><i class="fas fa-list-ol"></i></button>
+          <button title="Show Lyrics" onclick="Musify.navigation.toggleLyrics(true)"><i class="fas fa-align-left"></i></button>
+        </div>
+      </div>
+    </div>
+    <div id="lyricsContainer" class="lyrics-container">
+        <button class="collapse-btn" onclick="Musify.navigation.toggleLyrics(false)"><i class="fas fa-times"></i></button>
+        <h2>Lyrics</h2>
+        <div id="lyricsContent" class="lyrics-content">Lyrics are not available for this song.</div>
+    </div>
+    <div id="queueContainer" class="queue-container">
+        <div class="queue-header">
+          <h2>Up Next</h2>
+          <button class="collapse-btn" onclick="Musify.navigation.toggleQueueView(false)"><i class="fas fa-times"></i></button>
+          <button class="clear-queue-btn" onclick="Musify.utils.clearQueue()">Clear Queue</button>
+        </div>
+        <div id="queueList" class="song-list"></div>
+    </div>
+  </div>
+
   <script src="app.js"></script>
 </body>
 </html>
