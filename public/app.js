@@ -23,6 +23,7 @@ const Musify = {
     navigation: {
       previousSection: 'discover',
       currentSection: 'discover',
+      loadedSections: new Set(), // Keep track of loaded sections
     },
   },
 
@@ -112,6 +113,15 @@ const Musify = {
         // Update duration once metadata is loaded
         this.player.updateProgressBar();
     });
+    this.ui.audioPlayer.addEventListener('play', () => {
+        this.state.isPlaying = true;
+        this.player.updatePlayPauseIcons(true);
+    });
+    this.ui.audioPlayer.addEventListener('pause', () => {
+        this.state.isPlaying = false;
+        this.player.updatePlayPauseIcons(false);
+        this.player.updateProgressBar();
+    });
     this.ui.progressBar.addEventListener('input', () => this.player.seek());
     this.ui.searchBar.addEventListener('keypress', e => { if (e.key === "Enter") this.navigation.triggerSearch(); });
     this.ui.searchBar.addEventListener('input', () => this.utils.debounce(this.navigation.showSearchSuggestions, 300)());
@@ -119,11 +129,6 @@ const Musify = {
     window.addEventListener('beforeunload', () => this.utils.savePlaybackState());
     this.ui.volumeSlider.addEventListener('input', (e) => this.player.setVolume(e.target.value));
     this.ui.audioQuality.addEventListener('change', (e) => this.utils.setAudioQuality(e.target.value));
-    document.querySelectorAll('.accordion-header').forEach(header => {
-        header.addEventListener('click', () => {
-            header.parentElement.classList.toggle('active');
-        });
-    });
     // Add mobile-specific gesture listeners
     this.utils.addMobileGestures();
 
@@ -398,11 +403,11 @@ const Musify = {
         const card = event.target.closest('.song, .discover-card');
         if (!card) return; // Exit if the click wasn't on a song or discover card
         const songListContainer = card.parentElement;
-
+        
         // Determine the source list of songs
         let sourceList;
         switch (songListContainer.id) {
-            case 'recommendedSongs':
+            case 'recommendedSongs': // This was the missing case
                 sourceList = Musify.state.discover.songs || [];
                 break;
             case 'historyList':
@@ -422,6 +427,10 @@ const Musify = {
     },
     async playFromCardContext(event, itemId, itemType) {
         event.stopPropagation(); // Don't trigger the card's navigation
+        
+        // Clear search and hide suggestions when an item is played
+        Musify.ui.searchBar.value = '';
+        Musify.ui.searchSuggestions.classList.remove('active');
 
         let songs = [];
         let data;
@@ -441,6 +450,11 @@ const Musify = {
                 case 'artist':
                     data = await Musify.api.getArtistDetails(itemId);
                     songs = data?.data?.topSongs || [];
+                    break;
+                case 'song':
+                    data = await Musify.api.getSongDetails(itemId);
+                    songs = data?.data || [];
+                    Musify.state.songQueue = Musify.state.discover.songs; // Set context to all recommended songs
                     break;
             }
 
@@ -546,22 +560,21 @@ const Musify = {
         }
     },
     togglePlayPause() {
-      const { audioPlayer, playPauseIcon, mobilePlayPauseIcon } = Musify.ui;
-      const allPlayIcons = [playPauseIcon, mobilePlayPauseIcon];
+      const { audioPlayer } = Musify.ui;
       if (!audioPlayer.src && Musify.state.songQueue.length > 0) {
-        // visualizer.init() is now called in playCurrent to be more robust
         Musify.state.currentSongIndex = 0;
         this.playCurrent();
         return;
       }
-      if (Musify.state.isPlaying) {
-        audioPlayer.pause(); // This will trigger the 'pause' action handler in mediaSession
-        allPlayIcons.forEach(icon => icon && icon.classList.replace('fa-pause', 'fa-play')); // Update UI icon
-      } else {
-        audioPlayer.play(); // This will trigger the 'play' action handler in mediaSession
-        allPlayIcons.forEach(icon => icon && icon.classList.replace('fa-play', 'fa-pause')); // Update UI icon
-      }
-      Musify.state.isPlaying = !Musify.state.isPlaying;
+      if (audioPlayer.paused) audioPlayer.play();
+      else audioPlayer.pause();
+    },
+    updatePlayPauseIcons(isPlaying) {
+        const { playPauseIcon, mobilePlayPauseIcon } = Musify.ui;
+        const action = isPlaying ? 'play' : 'pause';
+        const opposite = isPlaying ? 'pause' : 'play';
+        if (playPauseIcon) playPauseIcon.classList.replace(`fa-${action}`, `fa-${opposite}`);
+        if (mobilePlayPauseIcon) mobilePlayPauseIcon.classList.replace(`fa-${action}`, `fa-${opposite}`);
     },
     next() {
       // Mobile-only: if player is compact, show next/prev buttons briefly on song change
@@ -683,6 +696,7 @@ const Musify = {
       if (navigation.currentSection !== sectionId) {
         navigation.previousSection = navigation.currentSection;
         navigation.currentSection = sectionId;
+        if (sectionId.includes('-details')) navigation.loadedSections.delete(sectionId);
       }
       document.querySelectorAll('.nav-btn').forEach(btn => {
         const btnSection = btn.dataset.section;
@@ -699,10 +713,14 @@ const Musify = {
         'history': Musify.navigation.loadHistory,
         'timeline': Musify.navigation.loadTimeline,
       }[sectionId];
-      if (loadAction) loadAction();
 
       const newSection = document.getElementById(sectionId);
       if (newSection) {
+          // Only load content if it hasn't been loaded before
+          if (sectionId === 'history' || !navigation.loadedSections.has(sectionId)) {
+              if (loadAction) loadAction();
+              navigation.loadedSections.add(sectionId);
+          }
           newSection.classList.remove('slide-out'); // Remove slide-out class if it exists
           newSection.classList.add('active');
       }
@@ -757,6 +775,7 @@ const Musify = {
 
     triggerSearch() {
       if (Musify.ui.searchSuggestions) Musify.ui.searchSuggestions.classList.remove('active');
+      // Do not clear the search bar here, so the user can see what they searched for.
       this.search(true);
     },
 
@@ -841,7 +860,6 @@ const Musify = {
       if (data?.data?.albums?.results) suggestions.push(...data.data.albums.results.slice(0, 2));
       if (data?.data?.artists?.results) suggestions.push(...data.data.artists.results.slice(0, 2));
 
-      // Deduplicate and limit
       const uniqueSuggestions = Array.from(new Map(suggestions.map(item => [item.id, item])).values()).slice(0, 8);
 
       if (uniqueSuggestions.length === 0) {
@@ -850,17 +868,39 @@ const Musify = {
       }
 
       container.innerHTML = uniqueSuggestions.map(s => {
+          const imageUrl = Musify.render._getImageUrl(s.image);
+          const title = Musify.render._decode(s.title);
+          const subtitle = Musify.render._decode(s.subtitle || s.description || '');
+          let onclickAction = `Musify.navigation.selectSuggestion('${s.title}')`; // Default for top query
+
+          if (s.type === 'song') onclickAction = `Musify.player.playFromCardContext(event, '${s.id}', 'song')`;
+          if (s.type === 'album') onclickAction = `Musify.navigation.showAlbum('${s.id}')`;
+          if (s.type === 'artist') onclickAction = `Musify.navigation.showArtist(event, '${s.id}')`;
+
+          return `<div class="suggestion-item" onclick="${onclickAction}"><img src="${imageUrl}" loading="lazy" onerror="this.src='default_cover.jpg'"/><div><strong>${title}</strong><small>${subtitle}</small></div></div>`;
+      }).join('');
+
+      container.innerHTML = uniqueSuggestions.map(s => {
           let iconClass = 'fa-search';
           if (s.type === 'song') iconClass = 'fa-music';
           if (s.type === 'album') iconClass = 'fa-compact-disc';
           if (s.type === 'artist') iconClass = 'fa-user';
-          const onclickAction = s.type === 'song' ? `Musify.player.playFromQueue('${s.id}')` : s.type === 'album' ? `Musify.navigation.showAlbum('${s.id}')` : s.type === 'artist' ? `Musify.navigation.showArtist('${s.id}')` : `Musify.navigation.selectSuggestion('${s.title}')`;
-          return `<div class="suggestion-item" onclick="${onclickAction}"><i class="fas ${iconClass}"></i> ${s.title}</div>`;
+          let onclickAction = `Musify.navigation.selectSuggestion('${s.title}')`;
+          if (s.type === 'song') onclickAction = `Musify.player.playFromCardContext(event, '${s.id}', 'song')`;
+          if (s.type === 'album') onclickAction = `Musify.navigation.showAlbum('${s.id}')`;
+          if (s.type === 'artist') onclickAction = `Musify.navigation.showArtist(event, '${s.id}')`;
+
+          const imageUrl = Musify.render._getImageUrl(s.image);
+          return `<div class="suggestion-item" onclick="${onclickAction}"><img src="${imageUrl}" loading="lazy" onerror="this.src='default_cover.jpg'"/><div><strong>${Musify.render._decode(s.title)}</strong><small>${Musify.render._decode(s.subtitle || s.description || '')}</small></div></div>`;
       }).join('');
       container.classList.toggle('active', uniqueSuggestions.length > 0);
     },
     selectSuggestion(query) {
         Musify.ui.searchBar.value = query;
+        // Hide suggestions after selecting one to perform a full search
+        if (Musify.ui.searchSuggestions) {
+            Musify.ui.searchSuggestions.classList.remove('active');
+        }
         this.triggerSearch();
     },
     loadLibrary() {
@@ -1242,7 +1282,7 @@ const Musify = {
       };
 
       if (!imageUrl || !window.ColorThief || !Musify.state.dynamicTheme) {
-          resetTheme();
+          if (!document.body.classList.contains('dark')) resetTheme();
           return;
       }
 
@@ -1349,6 +1389,7 @@ const Musify = {
                     Musify.ui.audioPlayer.src = bestQuality.url || bestQuality.link;
                     Musify.ui.audioPlayer.currentTime = playbackState.currentTime || 0;
                 } else {
+                    Musify.player.updateMediaSession(songDetails);
                     // If we can't get a playable link, clear the state to avoid a broken player.
                     localStorage.removeItem('musify_playbackState');
                 }

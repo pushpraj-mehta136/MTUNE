@@ -175,79 +175,66 @@
 
       <section id="settings" class="content-section">
         <h1>Settings</h1>
-        <div class="settings-accordion">
-          <div class="accordion-item">
-            <button class="accordion-header">Appearance</button>
-            <div class="accordion-content">
-              <div class="settings-option">
-                <div><h3>Dark Mode</h3><p>Toggle between light and dark themes</p></div>
-                <label class="toggle-switch"><input type="checkbox" onchange="toggleDarkMode()"><span class="slider"></span></label>
-              </div>
-              <div class="settings-option">
-                <div><h3>Dynamic Theming</h3><p>Change player theme based on album art</p></div>
-                <label class="toggle-switch"><input type="checkbox" id="dynamicThemeToggle" onchange="toggleDynamicTheme(this.checked)" checked><span class="slider"></span></label>
-              </div>
-            </div>
+        <div class="settings-group">
+          <h2>Appearance</h2>
+          <div class="settings-option">
+            <div><h3>Dark Mode</h3><p>Toggle between light and dark themes.</p></div>
+            <label class="toggle-switch"><input type="checkbox" onchange="toggleDarkMode()"><span class="slider"></span></label>
           </div>
+          <div class="settings-option">
+            <div><h3>Dynamic Theming</h3><p>Change player theme based on album art.</p></div>
+            <label class="toggle-switch"><input type="checkbox" id="dynamicThemeToggle" onchange="toggleDynamicTheme(this.checked)" checked><span class="slider"></span></label>
+          </div>
+        </div>
 
-          <div class="accordion-item">
-            <button class="accordion-header">Playback</button>
-            <div class="accordion-content">
-              <div class="settings-option">
-                <div><h3>Audio Quality</h3><p>Set your preferred audio quality</p></div>
-                <select id="audioQuality" class="settings-select">
-                  <option value="320kbps" selected>High (320kbps)</option>
-                  <option value="160kbps">Medium (160kbps)</option>
-                  <option value="128kbps">Standard (128kbps)</option>
-                </select>
-              </div>
-              <div class="settings-option">
-                <div><h3>Endless Queue</h3><p>Automatically add similar songs when your queue ends</p></div>
-                <label class="toggle-switch"><input type="checkbox" id="endlessQueueToggle" onchange="toggleEndlessQueue(this.checked)" checked><span class="slider"></span></label>
-              </div>
-            </div>
+        <div class="settings-group">
+          <h2>Playback</h2>
+          <div class="settings-option">
+            <div><h3>Audio Quality</h3><p>Set your preferred streaming quality.</p></div>
+            <select id="audioQuality" class="settings-select">
+              <option value="320kbps" selected>High (320kbps)</option>
+              <option value="160kbps">Medium (160kbps)</option>
+              <option value="128kbps">Standard (128kbps)</option>
+            </select>
           </div>
+          <div class="settings-option">
+            <div><h3>Endless Queue</h3><p>Automatically add similar songs when your queue ends.</p></div>
+            <label class="toggle-switch"><input type="checkbox" id="endlessQueueToggle" onchange="toggleEndlessQueue(this.checked)" checked><span class="slider"></span></label>
+          </div>
+        </div>
 
-          <div class="accordion-item">
-            <button class="accordion-header">Downloads</button>
-            <div class="accordion-content">
-              <div class="settings-option">
-                <div><h3>Download Location</h3><p>Choose where to save your music. Your browser will ask for permission.</p></div>
-                <button class="nav-btn" onclick="Musify.utils.selectDownloadFolder()"><i class="fas fa-folder-open"></i> Choose Folder</button>
-              </div>
-            </div>
+        <div class="settings-group">
+          <h2>Downloads</h2>
+          <div class="settings-option">
+            <div><h3>Download Location</h3><p>Choose where to save your music (requires browser permission).</p></div>
+            <button class="settings-btn" onclick="Musify.utils.selectDownloadFolder()"><i class="fas fa-folder-open"></i> Choose Folder</button>
           </div>
+        </div>
 
-          <div class="accordion-item">
-            <button class="accordion-header">Data Management</button>
-            <div class="accordion-content">
-              <div class="settings-option">
-                <div><h3>Clear Listening History</h3><p>This will permanently delete your listening history.</p></div>
-                <button class="nav-btn danger-btn" onclick="clearHistory()"><i class="fas fa-trash"></i> Clear History</button>
-              </div>
-              <div class="settings-option">
-                <div><h3>Clear Favourites</h3><p>This will permanently delete all your favourite songs.</p></div>
-                <button class="nav-btn danger-btn" onclick="clearFavourites()"><i class="fas fa-trash"></i> Clear Favourites</button>
-              </div>
-              <div class="settings-option">
-                <div><h3>Reset All Data</h3><p>This will delete all history, favourites, and playlists.</p></div>
-                <button class="nav-btn danger-btn reset-btn" onclick="clearAllData()"><i class="fas fa-exclamation-triangle"></i> Reset App</button>
-              </div>
-            </div>
+        <div class="settings-group">
+          <h2>Data Management</h2>
+          <div class="settings-option">
+            <div><h3>Clear Listening History</h3><p>This will permanently delete your listening history.</p></div>
+            <button class="settings-btn danger-btn" onclick="clearHistory()"><i class="fas fa-trash"></i> Clear History</button>
           </div>
+          <div class="settings-option">
+            <div><h3>Clear Favourites</h3><p>This will permanently delete all your favourite songs.</p></div>
+            <button class="settings-btn danger-btn" onclick="clearFavourites()"><i class="fas fa-trash"></i> Clear Favourites</button>
+          </div>
+          <div class="settings-option">
+            <div><h3>Reset All Data</h3><p>This will delete all history, favourites, and playlists.</p></div>
+            <button class="settings-btn danger-btn reset-btn" onclick="clearAllData()"><i class="fas fa-exclamation-triangle"></i> Reset App</button>
+          </div>
+        </div>
 
-          <div class="accordion-item">
-            <button class="accordion-header">General</button>
-            <div class="accordion-content">
-              <div class="settings-option">
-                <div><h3>Notifications</h3><p>Enable or disable app notifications</p></div>
-                <label class="toggle-switch">
-                  <input type="checkbox" id="notificationsToggle" onchange="toggleNotifications(this.checked)" checked>
-                  <span class="slider"></span>
-                </label>
-              </div>
-            </div>
-          </div>
+        <div class="settings-group">
+          <h2>General</h2>
+          <div class="settings-option">
+            <div><h3>Notifications</h3><p>Enable or disable app notifications.</p></div>
+            <label class="toggle-switch">
+              <input type="checkbox" id="notificationsToggle" onchange="toggleNotifications(this.checked)" checked>
+              <span class="slider"></span>
+            </label>
         </div>
       </section>
     </main>
