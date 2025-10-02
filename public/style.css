@@ -556,12 +556,12 @@ body.dark .scrollable-row::-webkit-scrollbar-track {
   padding: 1rem;
 }
 .scrollable-row .song, .scrollable-row .playlist, .scrollable-row .album, .scrollable-row .artist {
-    width: 280px; /* Restore fixed width only for items in scrollable rows */
+    width: 240px; /* Consistent width with discover cards */
     flex-shrink: 0;
 }
 
 
-.song:hover, .playlist:hover, .album:hover, .artist:hover {
+.song:hover, .playlist:hover, .album:hover, .artist:hover, .discover-card:hover {
   transform: translateY(-5px);
   box-shadow: 0 10px 25px rgba(0, 0, 0, 0.15);
   border-color: var(--accent-light);
@@ -576,23 +576,37 @@ body.dark .scrollable-row::-webkit-scrollbar-track {
   flex-shrink: 0;
 }
 .song img {
-    cursor: pointer;
+    position: relative;
 }
 
 .song .play-btn {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 44px;
+    height: 44px;
+    background: rgba(var(--accent-rgb), 0.8);
+    color: white;
+    border-radius: 50%;
+    border: none;
+    display: flex;
+    align-items: center;
+    justify-content: center;
     opacity: 0;
-    transition: opacity 0.2s ease;
+    transition: opacity 0.3s ease, transform 0.3s ease;
+    z-index: 2;
 }
 
 .song:hover .play-btn {
     opacity: 1;
+    transform: translate(-50%, -50%) scale(1);
 }
 
-.song.is-playing .play-btn {
-    opacity: 1;
-    background: var(--accent);
-    color: white;
+.song:hover img {
+    filter: brightness(0.7);
 }
+
 .song.is-playing .song-duration {
     display: none;
 }
@@ -620,20 +634,6 @@ body.dark .scrollable-row::-webkit-scrollbar-track {
     color: var(--text-secondary);
     margin-left: auto;
     padding: 0 1rem;
-}
-
-.playlist-placeholder {
-    width: 60px;
-    height: 60px;
-    border-radius: 12px;
-    background: var(--glass-bg);
-    border: 1px solid var(--glass-border);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 1.5rem;
-    color: var(--text-secondary);
-    flex-shrink: 0;
 }
 
 .song .options-btn {
@@ -673,6 +673,7 @@ body.dark .scrollable-row::-webkit-scrollbar-track {
     background: var(--accent);
     color: white;
     border-color: var(--accent-light);
+    position: relative;
 }
 
 .song.is-playing small::before {
@@ -681,6 +682,7 @@ body.dark .scrollable-row::-webkit-scrollbar-track {
     font-weight: 900;
     margin-right: 0.5rem;
     color: var(--accent-light);
+    animation: pulse 1.5s infinite;
 }
 .song strong, .playlist strong, .album strong, .artist strong {
   font-weight: 600;
@@ -1980,4 +1982,79 @@ body.dark .slider:before {
 .song.dragging {
     opacity: 0.5;
     background: var(--accent);
+}
+/* Context Menu */
+.context-menu {
+    position: fixed;
+    background: var(--primary-light);
+    border: 1px solid var(--glass-border);
+    border-radius: var(--element-radius);
+    box-shadow: var(--glass-shadow);
+    z-index: 1000;
+    min-width: 200px;
+    opacity: 0;
+    visibility: hidden;
+    transform: scale(0.95);
+    transition: opacity 0.2s ease, transform 0.2s ease;
+}
+
+.context-menu.active {
+    opacity: 1;
+    visibility: visible;
+    transform: scale(1);
+}
+
+.context-menu ul {
+    list-style: none;
+    padding: 0.5rem 0;
+}
+
+.context-menu li {
+    padding: 0.75rem 1.25rem;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    color: var(--text-primary);
+    transition: background 0.2s ease, color 0.2s ease;
+}
+
+.context-menu li:hover {
+    background: var(--accent);
+    color: white;
+}
+
+.context-menu li i {
+    font-size: 1rem;
+    width: 20px; /* Align icons */
+}
+
+.context-menu .separator {
+    height: 1px;
+    background: var(--glass-border);
+    margin: 0.5rem 0;
+}
+
+@keyframes pulse {
+    0% { transform: scale(1); }
+    50% { transform: scale(1.1); }
+    100% { transform: scale(1); }
+}
+
+
+
+/* Modal Styles */
+.modal-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.6);
+    backdrop-filter: blur(5px);
+    z-index: 1050;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    opacity: 0;
 }

@@ -250,7 +250,7 @@ const Musify = {
       img.onerror = () => { img.src = 'default_cover.jpg'; };
 
       const infoDiv = document.createElement('div');
-      const strong = document.createElement('strong');
+	  const strong = document.createElement('strong');
       const span = document.createElement('span');
       span.textContent = this._decode(song.name || song.title);
       strong.appendChild(span);
@@ -267,13 +267,13 @@ const Musify = {
 
       const durationSpan = document.createElement('span');
       durationSpan.className = 'song-duration';
-      durationSpan.textContent = Musify.player.formatTime(song.duration || 0);
+	  durationSpan.textContent = Musify.player.formatTime(song.duration || 0);
       const contextBtn = inQueue 
         ? this._createButton('options-btn remove-from-queue-btn', `Musify.utils.removeFromQueue(event, '${song.id}')`, 'Remove from queue', 'fas fa-times')
         : this._createButton('options-btn', ``, 'More options', 'fas fa-ellipsis-v'); // Onclick handled by event listener
-      
-      const playBtn = this._createButton('play-btn', ``, `Play ${song.title}`, 'fas fa-play'); // Onclick handled by event listener
-      div.append(img, infoDiv, durationSpan, playBtn);
+      const playBtn = this._createButton('play-btn', `Musify.player.playSongFromCard(event, '${song.id}')`, `Play ${this._decode(song.name || song.title)}`, 'fas fa-play');
+      img.insertAdjacentElement('afterend', playBtn);
+      div.append(img, infoDiv, durationSpan, contextBtn);
       return div;
     },
     playlistCard(pl) {
@@ -446,10 +446,12 @@ const Musify = {
         const songListContainer = card.parentElement;
         
         // Determine the source list of songs
-        let sourceList;
+        let sourceList, shouldReplaceQueue = true;
         switch (songListContainer.id) {
             case 'recommendedSongs': // This was the missing case
                 sourceList = Musify.state.discover.songs || [];
+                break;
+            case 'queueList':
                 break;
             case 'historyList':
                 sourceList = Musify.state.history;
@@ -460,8 +462,8 @@ const Musify = {
             default: // Includes search, playlist, album, artist, and queue views
                 sourceList = Musify.state.songQueue;
         }
-
-        if (sourceList && sourceList.length > 0) {
+	
+        if (shouldReplaceQueue && sourceList && sourceList.length > 0) {
             Musify.state.songQueue = sourceList;
         }
         this.playFromQueue(songId);
@@ -816,9 +818,10 @@ const Musify = {
         const { queueContainer, queueList } = Musify.ui;
         queueContainer.classList.toggle('active', show);
         if (show) {
+            const currentSongId = Musify.state.songQueue[Musify.state.currentSongIndex]?.id;
             Musify.render.populate(queueList, Musify.state.songQueue, (s) => Musify.render.songCard(s, { inQueue: true }), 'The queue is empty.', 'Could not load queue.');
-            const currentSong = Musify.state.songQueue[Musify.state.currentSongIndex];
-            if (currentSong) this.player.updateInfo(currentSong); // Re-apply highlight
+            const currentQueueItem = queueList.querySelector(`.song[data-song-id="${currentSongId}"]`);
+            if (currentQueueItem) currentQueueItem.classList.add('is-playing');
         }
     },
 
@@ -1269,8 +1272,11 @@ const Musify = {
             const songCard = e.target.closest('.song');
             if (songCard) {
                 e.preventDefault();
-                const songId = songCard.dataset.songId;
-                this.showSongContextMenu(e, songId);
+                const songId = songCard.dataset.songId
+                const inQueue = songCard.closest('#queueList');
+                this.showSongContextMenu(e, songId, {
+                    isQueue: !!inQueue
+                });
             }
         });
     },
@@ -1387,10 +1393,12 @@ const Musify = {
             span.classList.remove('marquee');
         }
     },
-    showSongContextMenu(e, songId) {
+    showSongContextMenu(e, songId, options = {}) {
         e.stopPropagation();
 
-        const song = Musify.state.songQueue.find(s => s.id === songId) || Musify.state.history.find(s => s.id === songId) || Musify.state.favourites.find(s => s.id === songId);
+        const song = Musify.state.songQueue.find(s => s.id === songId) 
+            || Musify.state.history.find(s => s.id === songId) 
+            || Musify.state.favourites.find(s => s.id === songId);
         if (!song) return;
 
         const sheetContent = document.querySelector('#bottomSheet .bottom-sheet-content');
@@ -1402,10 +1410,14 @@ const Musify = {
             playlistItems = Musify.state.userPlaylists.map(p => `<li onclick="Musify.utils.addSongToPlaylist('${songId}', '${p.id}'); Musify.utils.hideBottomSheet();"><i class="fas fa-list"></i> Add to ${p.name}</li>`).join('');
         }
 
+        const queueOptions = options.isQueue ? `
+            <li onclick="Musify.utils.playNext('${songId}'); Musify.utils.hideBottomSheet();"><i class="fas fa-level-up-alt"></i> Play Next</li>
+        ` : '';
+
         sheetContent.innerHTML = `
             <ul>
                 <li onclick="Musify.utils.startRadio('${songId}'); Musify.utils.hideBottomSheet();"><i class="fas fa-broadcast-tower"></i> Start Radio</li>
-                <li onclick="Musify.utils.downloadSong('${songId}'); Musify.utils.hideBottomSheet();"><i class="fas fa-download"></i> Download</li>
+                ${queueOptions}
                 ${playlistItems ? '<li class="separator"></li>' : ''}
                 ${playlistItems}
                 <li onclick="Musify.utils.toggleFavourite('${songId}'); Musify.utils.hideBottomSheet();">
@@ -1413,6 +1425,8 @@ const Musify = {
                     ${isFavourited ? 'Remove from Favourites' : 'Add to Favourites'}
                 </li>
             </ul>
+            <li onclick="Musify.utils.downloadSong('${songId}'); Musify.utils.hideBottomSheet();"><i class="fas fa-download"></i> Download</li>
+
         `;
 
         document.getElementById('bottomSheet').classList.add('active');
@@ -1533,7 +1547,46 @@ const Musify = {
         };
     },
     toggleDarkMode() {
-      document.body.classList.toggle('dark');
+      Musify.state.isDarkMode = !Musify.state.isDarkMode;
+      document.body.classList.toggle('dark-mode', Musify.state.isDarkMode);
+      localStorage.setItem('musify_dark_mode', Musify.state.isDarkMode);
+    },
+    toggleDynamicTheme() {
+      Musify.state.dynamicTheme = !Musify.state.dynamicTheme;
+      localStorage.setItem('musify_dynamic_theme', Musify.state.dynamicTheme);
+      // Re-apply theme based on current song
+      if (Musify.state.currentSongIndex > -1) {
+          const currentSong = Musify.state.songQueue[Musify.state.currentSongIndex];
+          this.updatePlayerTheme(Musify.render._getImageUrl(currentSong.image));
+      } else {
+          this.updatePlayerTheme(null); // Reset to default
+      }
+    },
+    saveFavourites() {
+        localStorage.setItem('musify_favourites', JSON.stringify(Musify.state.favourites));
+    },
+    saveUserPlaylists() {
+        localStorage.setItem('musify_user_playlists', JSON.stringify(Musify.state.userPlaylists));
+    },
+    async savePlaylist(playlistId) {
+        const existing = Musify.state.savedPlaylists.find(p => p.id === playlistId);
+        if (existing) {
+            this.showNotification('Playlist already saved!', 'info');
+            return;
+        }
+        const playlistData = await Musify.api.getPlaylistDetails(playlistId);
+        if (playlistData?.data) {
+            Musify.state.savedPlaylists.unshift(playlistData.data);
+            localStorage.setItem('musify_saved_playlists', JSON.stringify(Musify.state.savedPlaylists));
+            this.showNotification('Playlist saved to library!', 'success');
+            if (Musify.state.navigation.currentSection === 'saved-playlists') Musify.navigation.loadSavedPlaylists();
+        } else {
+            this.showNotification('Failed to save playlist.', 'error');
+        }
+    },
+    showNotification(message, type = 'info') {
+        const notification = document.getElementById('notification');
+        notification.textContent =      document.body.classList.toggle('dark');
       localStorage.setItem('darkMode', document.body.classList.contains('dark'));
     },
     loadTheme() {
@@ -1648,6 +1701,17 @@ const Musify = {
             }
             this.saveUserPlaylists();
             Musify.utils.showNotification(`Added to ${playlist.name}`, 'success');
+        }
+    },
+    playNext(songId) {
+        const { songQueue, currentSongIndex } = Musify.state;
+        const songIndex = songQueue.findIndex(s => s.id === songId);
+        if (songIndex > -1) {
+            const [song] = songQueue.splice(songIndex, 1);
+            songQueue.splice(currentSongIndex + 1, 0, song);
+            // Re-render the queue to show the new order
+            Musify.navigation.toggleQueueView(true);
+            Musify.utils.showNotification(`"${song.name}" will play next.`, 'success');
         }
     },
     async savePlaylist(playlistId) {
