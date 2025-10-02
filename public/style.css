@@ -258,6 +258,10 @@ body.dark .main-content::-webkit-scrollbar-thumb {
   margin-bottom: 1.5rem;
 }
 
+.search-header {
+  margin-bottom: 1.5rem;
+}
+
 .search-input-container {
   position: relative;
   flex-grow: 1;
@@ -419,6 +423,12 @@ body.dark .search-suggestions::-webkit-scrollbar-thumb {
 }
 .content-section[id*="-details"].active {
     animation: slideInFromRight 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+}
+
+.search-results-wrapper {
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
 }
 
 .discover-header {
@@ -723,10 +733,10 @@ body.dark .song-list::-webkit-scrollbar-track {
   grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
   gap: 1.5rem;
 }
-
-.album, .artist {
-  flex-direction: column;
-  text-align: center;
+.search-results-wrapper .horizontal-section .album,
+.search-results-wrapper .horizontal-section .artist {
+  flex-direction: column; /* Keep column layout for horizontal scroll */
+  text-align: center; /* Center text for column layout */
   min-width: auto;
 }
 
@@ -1346,8 +1356,13 @@ input:checked + .slider:before {
     }
     .sidebar-header { display: none; }
     /* Hide search bar by default on mobile, JS will show it on the search page */
-    .main-content:not(.search-active) #mainSearchBar {
-        display: none !important;
+    #mainSearchBar {
+        display: flex; /* Always show on search page */
+    }
+
+    .search-header {
+        display: flex;
+        flex-direction: column;
     }
 
     .discover-header {

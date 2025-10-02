@@ -28,13 +28,6 @@
       </nav>
     </aside>
     <main class="main-content">
-      <header id="mainSearchBar" class="search-bar">
-        <div class="search-input-container">
-          <input type="search" id="searchBar" placeholder="What do you want to listen to?" aria-label="Search music" autocomplete="off" />
-          <div id="searchSuggestions" class="search-suggestions"></div>
-        </div>
-        <button title="Search" onclick="triggerSearch()"><i class="fas fa-search"></i></button>
-      </header>
 
       <section id="discover" class="content-section active">
         <div class="discover-header">
@@ -71,23 +64,32 @@
       </section>
 
       <section id="search" class="content-section">
-        <h1>Search</h1>
+        <div class="search-header">
+          <h1>Search</h1>
+          <header id="mainSearchBar" class="search-bar">
+            <div class="search-input-container">
+              <input type="search" id="searchBar" placeholder="What do you want to listen to?" aria-label="Search music" autocomplete="off" />
+              <div id="searchSuggestions" class="search-suggestions"></div>
+            </div>
+            <button title="Search" onclick="triggerSearch()"><i class="fas fa-search"></i></button>
+          </header>
+        </div>
         <div id="searchResultsContainer" class="search-results-wrapper">
-            <section>
+            <section class="horizontal-section">
                 <h2>Songs</h2>
-                <div id="songList" class="song-list"></div>
+                <div id="songList" class="grid-container scrollable-row"></div>
             </section>
-            <section>
+            <section class="horizontal-section">
                 <h2>Albums</h2>
-                <div id="albumSearchResults" class="search-grid"></div>
+                <div id="albumSearchResults" class="grid-container scrollable-row"></div>
             </section>
-            <section>
+            <section class="horizontal-section">
                 <h2>Playlists</h2>
-                <div id="playlistSearchResults" class="search-grid"></div>
+                <div id="playlistSearchResults" class="grid-container scrollable-row"></div>
             </section>
-            <section>
+            <section class="horizontal-section">
                 <h2>Artists</h2>
-                <div id="artistSearchResults" class="search-grid"></div>
+                <div id="artistSearchResults" class="grid-container scrollable-row"></div>
             </section>
         </div>
       </section>
@@ -138,7 +140,7 @@
 
       <section id="playlist-details" class="content-section">
         <div class="details-page-wrapper">
-          <button class="details-back-btn" onclick="Musify.navigation.goBack()"><i class="fas fa-arrow-left"></i></button>
+          <button class="details-back-btn" onclick="MTUNE.navigation.goBack()"><i class="fas fa-arrow-left"></i></button>
           <div id="playlistDetailsHeader"></div>
           <div class="contextual-search-bar">
             <i class="fas fa-search"></i>
@@ -150,7 +152,7 @@
 
       <section id="album-details" class="content-section">
         <div class="details-page-wrapper">
-          <button class="details-back-btn" onclick="Musify.navigation.goBack()"><i class="fas fa-arrow-left"></i></button>
+          <button class="details-back-btn" onclick="MTUNE.navigation.goBack()"><i class="fas fa-arrow-left"></i></button>
           <div id="albumDetailsHeader"></div>
           <div class="contextual-search-bar">
             <i class="fas fa-search"></i>
@@ -162,7 +164,7 @@
 
       <section id="artist-details" class="content-section">
         <div class="details-page-wrapper">
-          <button class="details-back-btn" onclick="Musify.navigation.goBack()"><i class="fas fa-arrow-left"></i></button>
+          <button class="details-back-btn" onclick="MTUNE.navigation.goBack()"><i class="fas fa-arrow-left"></i></button>
           <div id="artistDetailsHeader"></div>
           <h2>Top Songs</h2>
           <div id="artistTopSongs" class="song-list"></div>
@@ -226,7 +228,7 @@
               <h2>Downloads</h2>
               <div class="settings-option">
                 <div><h3>Download Location</h3><p>Choose where to save your music. Your browser will ask for permission.</p></div>
-                <button class="settings-btn" onclick="Musify.utils.selectDownloadFolder()"><i class="fas fa-folder-open"></i> Choose Folder</button>
+                <button class="settings-btn" onclick="MTUNE.utils.selectDownloadFolder()"><i class="fas fa-folder-open"></i> Choose Folder</button>
               </div>
             </div>
 
@@ -262,7 +264,7 @@
     </main>
 
     <footer class="bottom-player">
-      <div class="player-song-info" onclick="Musify.navigation.toggleNowPlayingView(true)">
+      <div class="player-song-info" onclick="MTUNE.navigation.toggleNowPlayingView(true)">
           <img id="currentSongImg" alt="Album Art" src="/default_cover.jpg"/>
           <div class="player-text">
             <div id="currentSongTitle"><span>No song playing</span></div>
@@ -302,7 +304,7 @@
   <div id="nowPlayingView" class="now-playing-view">
     <div class="now-playing-bg"></div>
     <div class="now-playing-content">
-      <button class="collapse-btn" onclick="Musify.navigation.toggleNowPlayingView(false)"><i class="fas fa-chevron-down"></i></button>
+      <button class="collapse-btn" onclick="MTUNE.navigation.toggleNowPlayingView(false)"><i class="fas fa-chevron-down"></i></button>
       <button id="nowPlayingOptionsBtn" class="player-options-btn" onclick="showCurrentSongOptions(event)" title="More Options"><i class="fas fa-ellipsis-v"></i></button>
       
       
@@ -339,25 +341,25 @@
           <i class="fas fa-volume-high"></i>
         </div>
         <div class="now-playing-actions">
-          <button title="Show Queue" onclick="Musify.navigation.toggleQueueView(true)"><i class="fas fa-list-ol"></i></button>
-          <button title="Show Lyrics" onclick="Musify.navigation.toggleLyrics(true)"><i class="fas fa-align-left"></i></button>
+          <button title="Show Queue" onclick="MTUNE.navigation.toggleQueueView(true)"><i class="fas fa-list-ol"></i></button>
+          <button title="Show Lyrics" onclick="MTUNE.navigation.toggleLyrics(true)"><i class="fas fa-align-left"></i></button>
         </div>
       </div>
     </div>
     <div id="lyricsContainer" class="lyrics-container">
-        <button class="collapse-btn" onclick="Musify.navigation.toggleLyrics(false)"><i class="fas fa-times"></i></button>
+        <button class="collapse-btn" onclick="MTUNE.navigation.toggleLyrics(false)"><i class="fas fa-times"></i></button>
         <h2>Lyrics</h2>
         <div id="lyricsContent" class="lyrics-content">Lyrics are not available for this song.</div>
     </div>
     <div id="queueContainer" class="queue-container">
         <div class="queue-header">
           <h2>Up Next</h2>
-          <button class="collapse-btn" onclick="Musify.navigation.toggleQueueView(false)"><i class="fas fa-times"></i></button>
+          <button class="collapse-btn" onclick="MTUNE.navigation.toggleQueueView(false)"><i class="fas fa-times"></i></button>
           <div class="contextual-search-bar queue-search-bar">
             <i class="fas fa-search"></i>
             <input type="search" oninput="filterSongList(this.value, 'queueList')" placeholder="Filter queue...">
           </div>
-          <button class="clear-queue-btn" onclick="Musify.utils.clearQueue()">Clear Queue</button>
+          <button class="clear-queue-btn" onclick="MTUNE.utils.clearQueue()">Clear Queue</button>
         </div>
         <div class="now-playing-in-queue">
           <h4>Now Playing</h4>
@@ -370,7 +372,7 @@
 
   <!-- Bottom Sheet Context Menu -->
   <div id="bottomSheet" class="bottom-sheet">
-    <div class="bottom-sheet-overlay" onclick="Musify.utils.hideBottomSheet()"></div>
+    <div class="bottom-sheet-overlay" onclick="MTUNE.utils.hideBottomSheet()"></div>
     <div class="bottom-sheet-content">
       <!-- Menu items will be injected here -->
     </div>
@@ -381,10 +383,10 @@
     <div class="modal-content">
       <div class="modal-header">
         <h2>Add to Playlist</h2>
-        <button class="modal-close-btn" onclick="Musify.utils.hidePlaylistModal()"><i class="fas fa-times"></i></button>
+        <button class="modal-close-btn" onclick="MTUNE.utils.hidePlaylistModal()"><i class="fas fa-times"></i></button>
       </div>
       <div class="modal-body">
-        <button class="create-playlist-btn-modal" onclick="Musify.utils.createNewPlaylistFromModal()"><i class="fas fa-plus"></i> Create New Playlist</button>
+        <button class="create-playlist-btn-modal" onclick="MTUNE.utils.createNewPlaylistFromModal()"><i class="fas fa-plus"></i> Create New Playlist</button>
         <ul id="modalPlaylistList" class="modal-playlist-list">
           <!-- User playlists will be injected here -->
         </ul>
