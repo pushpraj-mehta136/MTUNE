@@ -87,6 +87,7 @@ const Musify = {
       recommendedPlaylists: document.getElementById('recommendedPlaylists'),
       recommendedArtists: document.getElementById('recommendedArtists'),
       songList: document.getElementById('songList'),
+      topSearchResult: document.getElementById('topSearchResult'),
       albumSearchResults: document.getElementById('albumSearchResults'),
       artistSearchResults: document.getElementById('artistSearchResults'),
       userPlaylists: document.getElementById('userPlaylists'),
@@ -119,6 +120,7 @@ const Musify = {
       nowPlayingRepeatBtn: document.getElementById('nowPlayingRepeatBtn'),
       nowPlayingRepeatIcon: document.getElementById('nowPlayingRepeatIcon'),
       nowPlayingLikeBtn: document.getElementById('nowPlayingLikeBtn'),
+      nowPlayingOptionsBtn: document.getElementById('nowPlayingOptionsBtn'),
       nowPlayingVolumeSlider: document.getElementById('nowPlayingVolumeSlider'),
       lyricsContainer: document.getElementById('lyricsContainer'),
       lyricsContent: document.getElementById('lyricsContent'),
@@ -329,12 +331,19 @@ const Musify = {
       div.className = 'artist';
       div.innerHTML = `
         <img src="${this._getImageUrl(artist.image)}" alt="${this._decode(artist.title)}" onerror="this.src='/default_artist.jpg'" loading="lazy"/>
-        <div><strong><span>${this._decode(artist.name || artist.title)}</span></strong><small>${this._decode(artist.description || artist.role || 'Artist')}</small></div>
+        <div>
+            <strong><span>${this._decode(artist.name || artist.title)}</span></strong>
+            <small class="card-meta">
+                <span>${this._decode(artist.role || 'Artist')}</span>
+            </small>
+        </div>
         <button onclick="Musify.navigation.showArtist(event, '${artist.id}')" title="View artist"><i class="fas fa-info-circle"></i></button>
       `;
       div.onclick = (e) => Musify.navigation.showArtist(e, artist.id);
       return div;
     },
+
+
     createPlaylistCard() {
         const div = document.createElement('div');
         div.className = 'album'; // Reuse album card styling
@@ -914,7 +923,7 @@ const Musify = {
 
     async search(isNewSearch = false) {
       const { search } = Musify.state;
-      const { songList, albumSearchResults, artistSearchResults } = Musify.ui;
+      const { songList, topSearchResult, albumSearchResults, artistSearchResults } = Musify.ui;
       const query = Musify.ui.searchBar.value.trim();
 
       if (search.isLoading || !query) {
@@ -944,6 +953,7 @@ const Musify = {
         albumSearchResults.innerHTML = '';
         artistSearchResults.innerHTML = '';
         Musify.render._renderMessage(songList, 'Searching for songs...');
+        Musify.render._renderMessage(topSearchResult, 'Searching...');
         Musify.render._renderMessage(albumSearchResults, 'Searching for albums...');
         Musify.render._renderMessage(artistSearchResults, 'Searching for artists...');
       }
@@ -951,10 +961,20 @@ const Musify = {
       search.isLoading = true;
 
       const songData = await Musify.api._fetch(`/search/songs?query=${search.query}&page=${search.songs.currentPage}&limit=20`);
-      const albumData = await Musify.api._fetch(`/search/albums?query=${search.query}&page=${search.albums.currentPage}&limit=12`);
-      const artistData = await Musify.api._fetch(`/search/artists?query=${search.query}&page=${search.artists.currentPage}&limit=12`);
+      const albumData = await Musify.api._fetch(`/search/albums?query=${search.query}&page=${search.albums.currentPage}&limit=6`);
+      const artistData = await Musify.api._fetch(`/search/artists?query=${search.query}&page=${search.artists.currentPage}&limit=6`);
+      const topQueryData = isNewSearch ? await Musify.api._fetch(`/search?query=${search.query}`) : null;
 
       if (isNewSearch) {
+          // Populate Top Result
+          const topResult = topQueryData?.data?.topQuery?.results?.[0];
+          if (topResult) {
+              topSearchResult.innerHTML = '';
+              topSearchResult.appendChild(Musify.render.timelineCard(topResult));
+          } else {
+              Musify.render._renderMessage(topSearchResult, 'No top result found.');
+          }
+
           // Populate songs
           search.songs.results = songData?.data?.results || [];
           search.songs.total = songData?.data?.total || 0;
@@ -969,7 +989,7 @@ const Musify = {
           // Populate artists
           search.artists.results = artistData?.data?.results || [];
           search.artists.total = artistData?.data?.total || 0;
-          Musify.render.populate(artistSearchResults, search.artists.results, Musify.render.timelineCard, 'No artists found.', 'Artist search failed.');
+          Musify.render.populate(artistSearchResults, search.artists.results, Musify.render.albumCard, 'No artists found.', 'Artist search failed.');
       } else { // This block is for infinite scroll
           if (songData?.data?.results) {
               search.songs.results.push(...songData.data.results);
@@ -1331,10 +1351,10 @@ const Musify = {
 
         mainContent.addEventListener('contextmenu', e => {
             const songCard = e.target.closest('.song');
-            if (songCard && window.innerWidth > 768) { // Desktop only
+            if (songCard) { // Apply to all devices
                 e.preventDefault();
-                const songId = songCard.dataset.songId
-                this.showSongContextMenu(e, songId);
+                const songId = songCard.dataset.songId;
+                this.showSongBottomSheet(songId); // Use bottom sheet for desktop too
             }
         });
 
@@ -1716,6 +1736,7 @@ const Musify = {
               const accentColor = `rgb(${palette[1].join(',')})`;
               document.documentElement.style.setProperty('--dynamic-accent', accentColor);
 
+
               // Apply to all player buttons and icons
               const allPlayerButtons = document.querySelectorAll('.player-controls button, .player-mobile-controls button, .now-playing-controls button, .now-playing-actions button, .volume-control i');
               allPlayerButtons.forEach(btn => btn.style.color = accentColor);
@@ -1734,6 +1755,9 @@ const Musify = {
               // Apply to mobile progress bar
               const mobileProgressBar = document.getElementById('mobile-progress-bar');
               if (mobileProgressBar) mobileProgressBar.style.background = accentColor;
+
+              // Apply album art glow
+              Musify.ui.nowPlayingImg.style.boxShadow = `0 0 40px -5px ${accentColor}`;
             } catch (e) {
                 console.error("ColorThief error:", e);
                 resetTheme();
@@ -2199,5 +2223,12 @@ function likeCurrentSong() {
     }
 }
 
+function showCurrentSongOptions(event) {
+    event.stopPropagation();
+    const song = Musify.state.songQueue[Musify.state.currentSongIndex];
+    if (song) {
+        Musify.utils.showSongBottomSheet(song.id);
+    }
+}
 // --- App Initialization ---
 document.addEventListener('DOMContentLoaded', () => Musify.init());

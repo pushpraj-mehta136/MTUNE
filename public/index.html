@@ -67,19 +67,23 @@
 
       <section id="search" class="content-section">
         <h1>Search</h1>
-        <div id="searchResultsContainer">
-            <section>
-                <h2>Songs</h2>
-                <div id="songList" class="song-list"></div>
-            </section>
-            <section>
-                <h2>Albums</h2>
-                <div id="albumSearchResults" class="album-grid"></div>
-            </section>
-            <section>
-                <h2>Artists</h2>
-                <div id="artistSearchResults" class="artist-list"></div>
-            </section>
+        <div id="searchResultsContainer" class="search-results-grid">
+            <div class="search-results-left">
+                <section>
+                    <h2>Top Result</h2>
+                    <div id="topSearchResult"></div>
+                </section>
+                <section>
+                    <h2>Songs</h2>
+                    <div id="songList" class="song-list"></div>
+                </section>
+            </div>
+            <div class="search-results-right">
+                <section>
+                    <h2>Albums</h2>
+                    <div id="albumSearchResults" class="album-grid"></div>
+                </section>
+            </div>
         </div>
       </section>
 
@@ -290,6 +294,7 @@
     <div class="now-playing-bg"></div>
     <div class="now-playing-content">
       <button class="collapse-btn" onclick="Musify.navigation.toggleNowPlayingView(false)"><i class="fas fa-chevron-down"></i></button>
+      <button id="nowPlayingOptionsBtn" class="player-options-btn" onclick="showCurrentSongOptions(event)" title="More Options"><i class="fas fa-ellipsis-v"></i></button>
       
       
       <div class="now-playing-art">
