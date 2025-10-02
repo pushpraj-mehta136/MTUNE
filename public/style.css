@@ -167,10 +167,13 @@ html, body {
   border-bottom: 1px solid var(--glass-border);
 }
 
-.app-logo {
-  height: 40px;
-  width: auto;
-}
+    .app-logo-mobile {
+        display: block !important; /* Ensure it's visible */
+        height: 70px;
+        display: block !important;
+        height: 70px; /* Further adjusted logo size for mobile */
+        margin-bottom: 0.5rem;
+    }
 
 .nav-list {
   display: flex;
@@ -1341,11 +1344,6 @@ input:checked + .slider:before {
     }
     .sidebar-header { display: none; }
     #mainSearchBar { display: none !important; } /* Ensure it's hidden */
-    .app-logo-mobile {
-        display: block;
-        height: 32px;
-        margin-bottom: 0.5rem;
-    }
     .discover-header {
         flex-direction: column;
         align-items: center;
@@ -1486,9 +1484,37 @@ input:checked + .slider:before {
     #currentSongTitle { font-size: 0.9rem; }
     #currentSongArtist { font-size: 0.8rem; }
 }
-.app-logo-mobile {
-    display: none; /* Hidden by default on desktop */
-}
+    
+    .details-header-text {
+        align-items: center;
+    }
+    .details-header-actions {
+        text-align: center;
+    }
+    .settings-group {
+        padding: 1rem 1.2rem;
+    }
+    .settings-option {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 1rem;
+    }
+    .settings-layout {
+        flex-direction: column;
+    }
+    .settings-nav {
+        width: 100%;
+        flex-direction: column; /* Stack items vertically on mobile */
+        overflow-x: hidden;
+        margin-bottom: 1rem; /* Add space between nav and content */
+        background: var(--glass-bg);
+        border-radius: var(--element-radius);
+    }
+
+    /* Hide the remove-from-queue button on mobile, as swipe is used */
+    .queue-container .song .remove-from-queue-btn {
+        display: none;
+    }
 
 /* --- Expanded Now Playing View --- */
 .now-playing-view {
