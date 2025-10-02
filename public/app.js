@@ -776,7 +776,7 @@ const MTUNE = {
             if (MTUNE.state.history.length > 50) { // Limit history size
                 MTUNE.state.history.pop();
             }
-            localStorage.setItem('musify_history', JSON.stringify(Musify.state.history));
+            localStorage.setItem('musify_history', JSON.stringify(MTUNE.state.history));
         }
     }
   },
@@ -1849,7 +1849,7 @@ const MTUNE = {
                 });
 
                 // Apply to progress bars and sliders
-                const progressBars = [Musify.ui.progressBar, Musify.ui.nowPlayingProgressBar, Musify.ui.volumeSlider, Musify.ui.nowPlayingVolumeSlider];
+                const progressBars = [MTUNE.ui.progressBar, MTUNE.ui.nowPlayingProgressBar, MTUNE.ui.volumeSlider, MTUNE.ui.nowPlayingVolumeSlider];
                 progressBars.forEach(bar => { if(bar) bar.style.accentColor = accentColor; });
 
                 // Apply to mobile progress bar
@@ -1893,8 +1893,8 @@ const MTUNE = {
         }
         const playlistData = await MTUNE.api.getPlaylistDetails(playlistId);
         if (playlistData?.data) {
-            MTUNE.state.savedPlaylists.unshift(playlistData.data);
-            localStorage.setItem('musify_saved_playlists', JSON.stringify(Musify.state.savedPlaylists));
+            MTUNE.state.savedPlaylists.unshift(playlistData.data); // Corrected from Musify to MTUNE
+            localStorage.setItem('musify_saved_playlists', JSON.stringify(MTUNE.state.savedPlaylists));
             this.showNotification('Playlist saved to library!', 'success');
             if (MTUNE.state.navigation.currentSection === 'saved-playlists') MTUNE.navigation.loadSavedPlaylists();
         } else {

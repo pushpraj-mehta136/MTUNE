@@ -200,11 +200,11 @@
               <h2>Appearance</h2>
               <div class="settings-option">
                 <div><h3>Dynamic Buttons</h3><p>Player buttons change color with album art</p></div>
-                <label class="toggle-switch"><input type="checkbox" id="dynamicButtonsToggle" onchange="toggleDynamicButtons(this.checked)" checked><span class="slider"></span></label>
+                <label class="toggle-switch"><input type="checkbox" id="dynamicButtonsToggle" data-setting="dynamicButtons" checked><span class="slider"></span></label>
               </div>
               <div class="settings-option">
                 <div><h3>Dynamic Background</h3><p>App background changes color with album art</p></div>
-                <label class="toggle-switch"><input type="checkbox" id="dynamicBackgroundToggle" onchange="toggleDynamicBackground(this.checked)" checked><span class="slider"></span></label>
+                <label class="toggle-switch"><input type="checkbox" id="dynamicBackgroundToggle" data-setting="dynamicBackground" checked><span class="slider"></span></label>
               </div>
             </div>
 
@@ -220,7 +220,7 @@
               </div>
               <div class="settings-option">
                 <div><h3>Endless Queue</h3><p>Automatically add similar songs when your queue ends</p></div>
-                <label class="toggle-switch"><input type="checkbox" id="endlessQueueToggle" onchange="toggleEndlessQueue(this.checked)" checked><span class="slider"></span></label>
+                <label class="toggle-switch"><input type="checkbox" id="endlessQueueToggle" data-setting="endlessQueue" checked><span class="slider"></span></label>
               </div>
             </div>
 
@@ -253,7 +253,7 @@
               <div class="settings-option">
                 <div><h3>Notifications</h3><p>Enable or disable app notifications</p></div>
                 <label class="toggle-switch">
-                  <input type="checkbox" id="notificationsToggle" onchange="toggleNotifications(this.checked)" checked>
+                  <input type="checkbox" id="notificationsToggle" data-setting="notifications" checked>
                   <span class="slider"></span>
                 </label>
               </div>
