@@ -87,7 +87,6 @@ const Musify = {
       recommendedPlaylists: document.getElementById('recommendedPlaylists'),
       recommendedArtists: document.getElementById('recommendedArtists'),
       songList: document.getElementById('songList'),
-      topSearchResult: document.getElementById('topSearchResult'),
       albumSearchResults: document.getElementById('albumSearchResults'),
       artistSearchResults: document.getElementById('artistSearchResults'),
       userPlaylists: document.getElementById('userPlaylists'),
@@ -923,7 +922,7 @@ const Musify = {
 
     async search(isNewSearch = false) {
       const { search } = Musify.state;
-      const { songList, topSearchResult, albumSearchResults, artistSearchResults } = Musify.ui;
+      const { songList, albumSearchResults, artistSearchResults } = Musify.ui;
       const query = Musify.ui.searchBar.value.trim();
 
       if (search.isLoading || !query) {
@@ -931,10 +930,8 @@ const Musify = {
             search.songs = { currentPage: 1, results: [], total: 0 };
             search.albums = { currentPage: 1, results: [], total: 0 };
             search.artists = { currentPage: 1, results: [], total: 0 };
-            // If the search is empty, hide the results and show a prompt inside the search section.
             document.getElementById('searchResultsContainer').style.display = 'none';
             const searchSection = document.getElementById('search');
-            // Use a placeholder div to avoid clearing the whole section's structure
             if (!searchSection.querySelector('.initial-prompt')) searchSection.insertAdjacentHTML('beforeend', '<div class="initial-prompt loading">Use the search bar to find songs, albums, and artists.</div>');
         }
         return;
@@ -948,33 +945,23 @@ const Musify = {
         Musify.state.songQueue = [];
         const initialPrompt = document.querySelector('#search .initial-prompt');
         if (initialPrompt) initialPrompt.remove();
-        document.getElementById('searchResultsContainer').style.display = 'block';
+        document.getElementById('searchResultsContainer').style.display = 'flex';
         songList.innerHTML = '';
         albumSearchResults.innerHTML = '';
         artistSearchResults.innerHTML = '';
         Musify.render._renderMessage(songList, 'Searching for songs...');
-        Musify.render._renderMessage(topSearchResult, 'Searching...');
         Musify.render._renderMessage(albumSearchResults, 'Searching for albums...');
         Musify.render._renderMessage(artistSearchResults, 'Searching for artists...');
       }
 
       search.isLoading = true;
 
-      const songData = await Musify.api._fetch(`/search/songs?query=${search.query}&page=${search.songs.currentPage}&limit=20`);
-      const albumData = await Musify.api._fetch(`/search/albums?query=${search.query}&page=${search.albums.currentPage}&limit=6`);
-      const artistData = await Musify.api._fetch(`/search/artists?query=${search.query}&page=${search.artists.currentPage}&limit=6`);
-      const topQueryData = isNewSearch ? await Musify.api._fetch(`/search?query=${search.query}`) : null;
+      // Increase the limit to fetch more results initially
+      const songData = await Musify.api._fetch(`/search/songs?query=${search.query}&page=${search.songs.currentPage}&limit=50`);
+      const albumData = await Musify.api._fetch(`/search/albums?query=${search.query}&page=${search.albums.currentPage}&limit=24`);
+      const artistData = await Musify.api._fetch(`/search/artists?query=${search.query}&page=${search.artists.currentPage}&limit=24`);
 
       if (isNewSearch) {
-          // Populate Top Result
-          const topResult = topQueryData?.data?.topQuery?.results?.[0];
-          if (topResult) {
-              topSearchResult.innerHTML = '';
-              topSearchResult.appendChild(Musify.render.timelineCard(topResult));
-          } else {
-              Musify.render._renderMessage(topSearchResult, 'No top result found.');
-          }
-
           // Populate songs
           search.songs.results = songData?.data?.results || [];
           search.songs.total = songData?.data?.total || 0;
@@ -989,7 +976,7 @@ const Musify = {
           // Populate artists
           search.artists.results = artistData?.data?.results || [];
           search.artists.total = artistData?.data?.total || 0;
-          Musify.render.populate(artistSearchResults, search.artists.results, Musify.render.albumCard, 'No artists found.', 'Artist search failed.');
+          Musify.render.populate(artistSearchResults, search.artists.results, Musify.render.timelineCard, 'No artists found.', 'Artist search failed.');
       } else { // This block is for infinite scroll
           if (songData?.data?.results) {
               search.songs.results.push(...songData.data.results);
@@ -1725,27 +1712,46 @@ const Musify = {
       img.onload = () => {
           try {
               const colorThief = new ColorThief();
-              const palette = colorThief.getPalette(img, 3);
-              // Sort palette by luminance to get dark, primary, and light shades
-              palette.sort((a, b) => (0.299*a[0] + 0.587*a[1] + 0.114*a[2]) - (0.299*b[0] + 0.587*b[1] + 0.114*b[2]));
-              const darkColor = `rgb(${palette[0].join(',')})`;
-              const lightColor = `rgb(${palette[2].join(',')})`;
+              let dominantColor = colorThief.getColor(img);
+              const palette = colorThief.getPalette(img, 5);
+
+              // --- New Logic to avoid black/white ---
+              const isBlack = (c) => c[0] < 30 && c[1] < 30 && c[2] < 30;
+              const isWhite = (c) => c[0] > 225 && c[1] > 225 && c[2] > 225;
+
+              if (isBlack(dominantColor) || isWhite(dominantColor)) {
+                  // Find the first color in the palette that isn't black or white
+                  const alternativeColor = palette.find(c => !isBlack(c) && !isWhite(c));
+                  if (alternativeColor) {
+                      dominantColor = alternativeColor;
+                  }
+              }
+
+              // Find a suitable dark color from the palette for text contrast
+              const darkColorRgb = palette.sort((a, b) => (0.299*a[0] + 0.587*a[1] + 0.114*a[2]) - (0.299*b[0] + 0.587*b[1] + 0.114*b[2]))[0];
+              const darkColor = `rgb(${darkColorRgb.join(',')})`;
+
+              // Determine if the dominant color is light or dark to choose a contrasting icon color
+              const dominantLuminance = (0.299*dominantColor[0] + 0.587*dominantColor[1] + 0.114*dominantColor[2]);
+              const iconColor = dominantLuminance > 128 ? 'rgba(0,0,0,0.8)' : 'white';
+
+              const accentColor = `rgb(${dominantColor.join(',')})`;
+
               document.documentElement.style.setProperty('--dynamic-primary-dark', darkColor);
-              document.documentElement.style.setProperty('--dynamic-primary', `rgb(${palette[1].join(',')})`);
-              document.documentElement.style.setProperty('--dynamic-primary-light', `rgb(${palette[2].join(',')})`);
-              const accentColor = `rgb(${palette[1].join(',')})`;
+              document.documentElement.style.setProperty('--dynamic-primary', accentColor);
+              document.documentElement.style.setProperty('--dynamic-primary-light', `rgb(${palette[palette.length - 1].join(',')})`);
               document.documentElement.style.setProperty('--dynamic-accent', accentColor);
 
 
               // Apply to all player buttons and icons
-              const allPlayerButtons = document.querySelectorAll('.player-controls button, .player-mobile-controls button, .now-playing-controls button, .now-playing-actions button, .volume-control i');
+              const allPlayerButtons = document.querySelectorAll('.player-controls button, .player-mobile-controls button, .now-playing-controls button, .now-playing-actions button, .volume-control i, .player-like-btn');
               allPlayerButtons.forEach(btn => btn.style.color = accentColor);
 
               // Apply to filled/tonal buttons
               const filledButtons = document.querySelectorAll('#playPauseBtn, .player-mobile-controls .play-btn, #nowPlayingPlayPauseBtn');
               filledButtons.forEach(btn => {
                   btn.style.background = accentColor;
-                  btn.style.color = darkColor; // Use darkest color for icon
+                  btn.style.color = iconColor;
               });
 
               // Apply to progress bars and sliders

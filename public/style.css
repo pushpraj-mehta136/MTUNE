@@ -689,18 +689,6 @@ body.dark .scrollable-row::-webkit-scrollbar-track {
     gap: 0.5rem;
     align-items: center;
 }
-
-/* Song list vertical scroll */
-.song-list {
-  display: flex;
-  flex-direction: column;
-  width: 100%;
-  max-height: calc(100vh - 320px);
-  width: 100%; /* Ensure it takes full width */
-  overflow-y: auto;
-  padding-right: 0.5rem;
-}
-
 .song-list::-webkit-scrollbar {
   width: 8px;
 }
@@ -724,9 +712,9 @@ body.dark .song-list::-webkit-scrollbar-track {
 }
 
 /* Album grid */
-.album-grid, .artist-list {
+.search-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
   gap: 1.5rem;
 }
 
@@ -736,7 +724,7 @@ body.dark .song-list::-webkit-scrollbar-track {
   min-width: auto;
 }
 
-.album-grid .album, .artist-list .artist {
+.search-grid .album, .search-grid .artist {
     flex-direction: column;
     text-align: center;
 }
@@ -1025,14 +1013,7 @@ body.dark .song-list::-webkit-scrollbar-track {
 }
 
 .player-mobile-controls {
-    position: absolute;
-    bottom: 0;
-    left: 0;
-    height: 3px;
-    background: var(--dynamic-accent);
-    width: 0;
-    cursor: pointer; /* Indicate it's clickable */
-    transition: width 0.2s linear;
+    display: none; /* Hidden by default on desktop */
 }
 
 /* --- Modern Settings Page Layout --- */
@@ -1404,10 +1385,6 @@ input:checked + .slider:before {
     .discover-card { width: 140px; }
     /* --- Player Adjustments --- */
     .bottom-player { /* Redesigned for mobile */
-        bottom: 65px; /* Above bottom nav */
-        left: 10px;
-        right: 10px;
-        width: auto;
         border-radius: var(--card-radius);
         padding: 0.6rem 1rem;
         grid-template-columns: 1fr auto;
@@ -1437,26 +1414,53 @@ input:checked + .slider:before {
         height: 44px;
         font-size: 1.2rem;
         background: var(--dynamic-accent);
+        border-radius: 50%; /* This will make the button circular */
         color: white;
     }
     .player-mobile-controls {
-        position: static; /* Reset position for flex layout */
-        grid-column: 2 / 3; /* Position it in the grid */
-        justify-self: end; /* Align to the right */
-        display: flex;
+        display: flex; /* Make it visible on mobile */
+        align-items: center;
+        justify-content: center;
+        grid-column: 2 / 3;
+        justify-self: end;
+    }
+    .player-mobile-controls .play-btn {
+        position: relative; /* For ripple effect */
+        overflow: hidden; /* For ripple effect */
     }
     .player-mobile-controls button:hover {
         color: var(--text-primary);
     }
 
     /* --- Smaller Cards and Grids --- */
-    .album-grid, .artist-list {
-        grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
-        gap: 1rem;
-    }
     .album img, .artist img {
         width: 120px;
         height: 120px;
+    }
+    .song-list {
+        gap: 0.5rem; /* Tighter gap on mobile */
+    }
+    .song-list .song {
+        padding: 0.75rem;
+        gap: 0.75rem;
+    }
+    .song-list .song img {
+        width: 50px;
+        height: 50px;
+        border-radius: 8px;
+    }
+    /* On mobile, make album/artist results horizontally scrollable */
+    .search-results-wrapper .search-grid {
+        display: flex;
+        overflow-x: auto;
+        padding: 1rem 0.5rem;
+        margin: 0 -0.5rem;
+        gap: 1.5rem;
+    }
+    .search-results-wrapper .search-grid .album,
+    .search-results-wrapper .search-grid .artist {
+        width: 160px;
+        flex-shrink: 0;
     }
 }
 
@@ -1466,10 +1470,6 @@ input:checked + .slider:before {
     h2 { font-size: 1.4rem; }
     .main-content { padding: 1rem; padding-bottom: calc(80px + 65px); }
     .discover-card { width: 45%; } /* 2-column layout */
-    .scrollable-row { gap: 1rem; }
-    .album-grid, .artist-list {
-        grid-template-columns: repeat(2, 1fr);
-    }
     .player-song-info img {
         width: 48px;
         height: 48px;
@@ -1926,11 +1926,20 @@ input:checked + .slider:before {
   color: white;
 }
 
+.lyrics-container .loading {
+    color: var(--text-secondary);
+    font-size: 1.2rem;
+}
+
 .lyrics-content {
   font-size: 1.5rem;
   line-height: 2;
   text-align: center;
   overflow-y: auto;
+  max-width: 800px;
+  width: 100%;
+  padding: 1rem;
+  color: rgba(255, 255, 255, 0.8);
 }
 
 /* Queue Container */
