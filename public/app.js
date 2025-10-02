@@ -1788,6 +1788,10 @@ const Musify = {
                 const dominantLuminance = (0.299*dominantColor[0] + 0.587*dominantColor[1] + 0.114*dominantColor[2]);
                 const iconColor = dominantLuminance > 128 ? 'rgba(0,0,0,0.8)' : 'white';
 
+                // --- New: Calculate complementary color for glow ---
+                const complementaryColor = `rgb(${255 - dominantColor[0]}, ${255 - dominantColor[1]}, ${255 - dominantColor[2]})`;
+                const glowStyle = `0 0 8px -2px ${complementaryColor}`;
+
                 document.documentElement.style.setProperty('--dynamic-primary-dark', darkColor);
                 document.documentElement.style.setProperty('--dynamic-primary', accentColor);
                 document.documentElement.style.setProperty('--dynamic-primary-light', `rgb(${palette[palette.length - 1].join(',')})`);
@@ -1817,6 +1821,7 @@ const Musify = {
                   allPlayerButtons.forEach(btn => {
                       btn.style.color = '';
                       btn.style.background = '';
+                      btn.style.boxShadow = ''; // Reset glow
                   });
                   const progressBars = [ Musify.ui.progressBar, Musify.ui.nowPlayingProgressBar, Musify.ui.volumeSlider, Musify.ui.nowPlayingVolumeSlider ];
                   progressBars.forEach(bar => { if(bar) bar.style.accentColor = ''; });

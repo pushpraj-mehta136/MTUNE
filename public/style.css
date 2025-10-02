@@ -1341,6 +1341,11 @@ input:checked + .slider:before {
     }
     .sidebar-header { display: none; }
     #mainSearchBar { display: none !important; } /* Ensure it's hidden */
+    .app-logo-mobile {
+        display: block;
+        height: 32px;
+        margin-bottom: 0.5rem;
+    }
     .discover-header {
         flex-direction: column;
         align-items: center;
@@ -1484,47 +1489,6 @@ input:checked + .slider:before {
 .app-logo-mobile {
     display: none; /* Hidden by default on desktop */
 }
-.app-logo-mobile {
-    display: none; /* Hidden by default on desktop */
-}
-
-@media (max-width: 768px) {
-    .details-header-content {
-        flex-direction: column;
-        text-align: center;
-        gap: 1.5rem;
-    }
-    .details-header-text {
-        align-items: center;
-    }
-    .details-header-actions {
-        text-align: center;
-    }
-    .settings-group {
-        padding: 1rem 1.2rem;
-    }
-    .settings-option {
-        flex-direction: column;
-        align-items: flex-start;
-        gap: 1rem;
-    }
-    .settings-layout {
-        flex-direction: column;
-    }
-    .settings-nav {
-        width: 100%;
-        flex-direction: column; /* Stack items vertically on mobile */
-        overflow-x: hidden;
-        margin-bottom: 1rem; /* Add space between nav and content */
-        background: var(--glass-bg);
-        border-radius: var(--element-radius);
-    }
-
-    /* Hide the remove-from-queue button on mobile, as swipe is used */
-    .queue-container .song .remove-from-queue-btn {
-        display: none;
-    }
-}
 
 /* --- Expanded Now Playing View --- */
 .now-playing-view {
@@ -1667,11 +1631,33 @@ input:checked + .slider:before {
 }
 
 .now-playing-progress input[type="range"] {
+  --track-height: 6px;
+  --thumb-size: 16px;
+  height: var(--thumb-size); /* Ensure enough height for thumb interaction */
+}
+
+.now-playing-progress input[type="range"] {
   flex-grow: 1;
 }
 
 .now-playing-progress span {
   min-width: 40px;
+}
+
+@keyframes wave-animation {
+    from { background-position: 0 0; }
+    to { background-position: -20px 0; }
+}
+
+.now-playing-progress input[type="range"]::-webkit-slider-runnable-track {
+    /* Create the wavy/zig-zag pattern */
+    background-image: radial-gradient(circle at 50% 0, transparent 35%, var(--dynamic-accent, var(--accent)) 36%, var(--dynamic-accent, var(--accent)) 44%, transparent 45%),
+                      radial-gradient(circle at 50% 100%, transparent 35%, var(--dynamic-accent, var(--accent)) 36%, var(--dynamic-accent, var(--accent)) 44%, transparent 45%);
+    background-size: 20px 10px; /* Size of one wave segment */
+    background-repeat: repeat-x;
+    
+    /* Animate the pattern */
+    animation: wave-animation 2s ease infinite;
 }
 
 .now-playing-controls {
