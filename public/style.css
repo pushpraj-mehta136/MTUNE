@@ -547,7 +547,7 @@ body.dark .scrollable-row::-webkit-scrollbar-track {
   border: 1px solid var(--glass-border);
   border-radius: var(--card-radius);
   display: flex;
-  gap: 1.2rem;
+  gap: 1rem;
   cursor: pointer;
   user-select: none;
   transition: var(--transition);
@@ -570,7 +570,7 @@ body.dark .scrollable-row::-webkit-scrollbar-track {
 .song img, .playlist img, .album img, .artist img {
   width: 60px;
   height: 60px;
-  object-fit: cover;
+  object-fit: cover; 
   border-radius: 12px;
   box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
   flex-shrink: 0;
@@ -1898,6 +1898,10 @@ body.dark .slider:before {
   max-width: 400px; /* Sidebar-like width on desktop */
   height: 100%;
   background: rgba(0,0,0,0.8);
+  /* Use a gradient for a more refined look */
+  background: linear-gradient(to bottom, rgba(22, 27, 34, 0.85), rgba(13, 17, 23, 0.95));
+  border-left: 1px solid var(--glass-border);
+
   backdrop-filter: blur(10px);
   z-index: 1001;
   display: flex;
@@ -1912,6 +1916,7 @@ body.dark .slider:before {
 .queue-header {
   display: flex;
   justify-content: space-between;
+  flex-wrap: wrap; /* Allow items to wrap */
   align-items: center;
   margin-bottom: 1.5rem;
   position: relative;
@@ -1924,6 +1929,12 @@ body.dark .slider:before {
 
 .queue-header .collapse-btn {
   position: static;
+}
+.queue-search-bar {
+    width: 100%; /* Take full width */
+    order: 3; /* Move to the bottom of the header */
+    margin-top: 1rem;
+    margin-bottom: 0;
 }
 
 .clear-queue-btn {
@@ -1940,19 +1951,37 @@ body.dark .slider:before {
 }
 
 .queue-container .song-list {
-  max-height: none; /* Allow it to fill the container */
+  height: 100%; /* Allow it to fill the container */
   padding-right: 0;
+  gap: 0.5rem; /* Add a small gap between songs */
 }
 
 .queue-container .song {
   background: transparent;
   color: white;
   border-color: rgba(255, 255, 255, 0.1);
+  padding: 0.75rem; /* Slightly reduce padding */
+  height: 76px; /* Enforce a consistent height */
+  box-sizing: border-box;
 }
 
 .queue-container .song small {
   color: rgba(255, 255, 255, 0.7);
 }
+
+.queue-container .song {
+    transition: transform 0.3s ease, opacity 0.3s ease;
+}
+
+.queue-container .song.swiping {
+    transition: none; /* Disable transition during active swipe */
+}
+
+.queue-container .song.removing {
+    transform: translateX(-100%);
+    opacity: 0;
+}
+
 
 @media (max-width: 768px) {
     .now-playing-art img {

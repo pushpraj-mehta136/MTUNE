@@ -168,6 +168,7 @@ const Musify = {
     // Add ripple effect to all buttons
     this.utils.addQueueDragHandlers();
     this.utils.addSongCardInteractionHandlers();
+    this.utils.addQueueInteractionHandlers();
     document.addEventListener('click', this.utils.applyRippleEffect);
 
 
@@ -269,11 +270,11 @@ const Musify = {
       durationSpan.className = 'song-duration';
 	  durationSpan.textContent = Musify.player.formatTime(song.duration || 0);
       const contextBtn = inQueue 
-        ? this._createButton('options-btn remove-from-queue-btn', `Musify.utils.removeFromQueue(event, '${song.id}')`, 'Remove from queue', 'fas fa-times')
-        : this._createButton('options-btn', ``, 'More options', 'fas fa-ellipsis-v'); // Onclick handled by event listener
+        ? null : null; // Remove button is now handled by gesture
       const playBtn = this._createButton('play-btn', `Musify.player.playSongFromCard(event, '${song.id}')`, `Play ${this._decode(song.name || song.title)}`, 'fas fa-play');
       img.insertAdjacentElement('afterend', playBtn);
-      div.append(img, infoDiv, durationSpan, contextBtn);
+      div.append(img, infoDiv, durationSpan);
+      if (contextBtn) div.appendChild(contextBtn);
       return div;
     },
     playlistCard(pl) {
@@ -449,9 +450,10 @@ const Musify = {
         let sourceList, shouldReplaceQueue = true;
         switch (songListContainer.id) {
             case 'recommendedSongs': // This was the missing case
-                sourceList = Musify.state.discover.songs || [];
+                sourceList = Musify.state.discover?.songs || [];
                 break;
             case 'queueList':
+                shouldReplaceQueue = false;
                 break;
             case 'historyList':
                 sourceList = Musify.state.history;
@@ -598,8 +600,10 @@ const Musify = {
       document.querySelector('.now-playing-bg').style.backgroundImage = `url(${Musify.render._getImageUrl(song.image)})`;
 
       // Highlight current song in queue view
-      document.querySelectorAll('#queueList .song').forEach(el => el.classList.remove('is-playing'));
-      const currentQueueItem = document.querySelector(`#queueList .song[data-song-id="${song.id}"]`);
+      // Remove highlight from any currently highlighted song across the app
+      document.querySelectorAll('.song.is-playing').forEach(el => el.classList.remove('is-playing'));
+      // Add highlight to the new current song in any visible list
+      const currentQueueItem = document.querySelector(`.song[data-song-id="${song.id}"]`);
       if (currentQueueItem) currentQueueItem.classList.add('is-playing');
     },
     updateMediaSession(song) {
@@ -1279,6 +1283,61 @@ const Musify = {
                 });
             }
         });
+
+        // Add a separate click listener for the queue container
+        const queueContainer = Musify.ui.queueContainer;
+        queueContainer.addEventListener('click', e => {
+            const songCard = e.target.closest('.song');
+            if (!songCard) return;
+
+            const songId = songCard.dataset.songId;
+            if (e.target.closest('.play-btn, img')) {
+                Musify.player.playSongFromCard(e, songId);
+            }
+        });
+    },
+    addQueueInteractionHandlers() {
+        const queueList = Musify.ui.queueList;
+        let touchStartX = 0;
+        let touchCurrentX = 0;
+        let swipedItem = null;
+
+        queueList.addEventListener('touchstart', e => {
+            const songCard = e.target.closest('.song');
+            if (songCard) {
+                touchStartX = e.changedTouches[0].clientX;
+                swipedItem = songCard;
+                // Add a class to disable transitions during swipe
+                swipedItem.classList.add('swiping');
+            }
+        }, { passive: true });
+
+        queueList.addEventListener('touchmove', e => {
+            if (!swipedItem) return;
+            touchCurrentX = e.changedTouches[0].clientX;
+            const deltaX = touchCurrentX - touchStartX;
+            // Only allow right-to-left swipe
+            if (deltaX < 0) {
+                swipedItem.style.transform = `translateX(${deltaX}px)`;
+            }
+        }, { passive: true });
+
+        queueList.addEventListener('touchend', e => {
+            if (!swipedItem) return;
+            const deltaX = e.changedTouches[0].clientX - touchStartX;
+            swipedItem.classList.remove('swiping');
+
+            // If swipe is more than 1/3 of the card width, remove it
+            if (deltaX < -swipedItem.clientWidth / 3) {
+                const songId = swipedItem.dataset.songId;
+                this.removeFromQueue(e, songId, swipedItem);
+            } else {
+                // Reset position if swipe was not enough
+                swipedItem.style.transform = 'translateX(0)';
+            }
+            swipedItem = null;
+            touchStartX = 0;
+        });
     },
     addQueueDragHandlers() {
         const queueList = Musify.ui.queueList;
@@ -1410,22 +1469,24 @@ const Musify = {
             playlistItems = Musify.state.userPlaylists.map(p => `<li onclick="Musify.utils.addSongToPlaylist('${songId}', '${p.id}'); Musify.utils.hideBottomSheet();"><i class="fas fa-list"></i> Add to ${p.name}</li>`).join('');
         }
 
-        const queueOptions = options.isQueue ? `
+        const queueOptions = `
             <li onclick="Musify.utils.playNext('${songId}'); Musify.utils.hideBottomSheet();"><i class="fas fa-level-up-alt"></i> Play Next</li>
-        ` : '';
+            <li onclick="Musify.utils.addToQueue('${songId}'); Musify.utils.hideBottomSheet();"><i class="fas fa-plus-square"></i> Add to Queue</li>
+        `;
 
         sheetContent.innerHTML = `
             <ul>
                 <li onclick="Musify.utils.startRadio('${songId}'); Musify.utils.hideBottomSheet();"><i class="fas fa-broadcast-tower"></i> Start Radio</li>
                 ${queueOptions}
-                ${playlistItems ? '<li class="separator"></li>' : ''}
-                ${playlistItems}
+                <li class="separator"></li>
                 <li onclick="Musify.utils.toggleFavourite('${songId}'); Musify.utils.hideBottomSheet();">
                     <i class="fas fa-heart" style="color: ${isFavourited ? 'var(--accent)' : 'inherit'}"></i>
                     ${isFavourited ? 'Remove from Favourites' : 'Add to Favourites'}
                 </li>
+                <li onclick="Musify.utils.downloadSong('${songId}'); Musify.utils.hideBottomSheet();"><i class="fas fa-download"></i> Download</li>
+                ${playlistItems ? '<li class="separator"></li>' : ''}
+                ${playlistItems}
             </ul>
-            <li onclick="Musify.utils.downloadSong('${songId}'); Musify.utils.hideBottomSheet();"><i class="fas fa-download"></i> Download</li>
 
         `;
 
@@ -1480,19 +1541,23 @@ const Musify = {
     isFavourited(songId) {
         return Musify.state.favourites.some(s => s.id === songId);
     },
-    removeFromQueue(event, songId) {
-        event.stopPropagation();
+    removeFromQueue(event, songId, element) {
+        if (event) event.stopPropagation();
         const state = Musify.state;
         const indexToRemove = state.songQueue.findIndex(s => s.id === songId);
 
         if (indexToRemove > -1) {
-            state.songQueue.splice(indexToRemove, 1);
-            // Adjust current index if needed
-            if (indexToRemove < state.currentSongIndex) {
-                state.currentSongIndex--;
+            const songElement = element || document.querySelector(`#queueList .song[data-song-id="${songId}"]`);
+            if (songElement) {
+                songElement.classList.add('removing');
+                songElement.addEventListener('transitionend', () => {
+                    state.songQueue.splice(indexToRemove, 1);
+                    if (indexToRemove < state.currentSongIndex) {
+                        state.currentSongIndex--;
+                    }
+                    songElement.remove();
+                }, { once: true });
             }
-            // Re-render the queue
-            Musify.navigation.toggleQueueView(true);
         }
     },
     toggleFavourite(songId) {
@@ -1706,13 +1771,32 @@ const Musify = {
     playNext(songId) {
         const { songQueue, currentSongIndex } = Musify.state;
         const songIndex = songQueue.findIndex(s => s.id === songId);
+        const song = Musify.state.songQueue.find(s => s.id === songId) 
+            || Musify.state.history.find(s => s.id === songId) 
+            || Musify.state.favourites.find(s => s.id === songId);
+
+        if (!song) return;
+
         if (songIndex > -1) {
+            // Song is already in the queue, just move it
             const [song] = songQueue.splice(songIndex, 1);
             songQueue.splice(currentSongIndex + 1, 0, song);
-            // Re-render the queue to show the new order
-            Musify.navigation.toggleQueueView(true);
-            Musify.utils.showNotification(`"${song.name}" will play next.`, 'success');
+        } else {
+            // Song is not in the queue, add it
+            songQueue.splice(currentSongIndex + 1, 0, song);
         }
+
+        // Re-render the queue to show the new order if it's open
+        if (Musify.ui.queueContainer.classList.contains('active')) {
+            Musify.navigation.toggleQueueView(true);
+        }
+        Musify.utils.showNotification(`"${song.name || song.title}" will play next.`, 'success');
+    },
+    addToQueue(songId) {
+        const song = Musify.state.songQueue.find(s => s.id === songId) || Musify.state.history.find(s => s.id === songId) || Musify.state.favourites.find(s => s.id === songId);
+        if (song && !Musify.state.songQueue.some(s => s.id === songId)) Musify.state.songQueue.push(song);
+        if (Musify.ui.queueContainer.classList.contains('active')) Musify.navigation.toggleQueueView(true);
+        Musify.utils.showNotification(`Added "${song.name || song.title}" to queue.`, 'success');
     },
     async savePlaylist(playlistId) {
         if (Musify.state.savedPlaylists.some(p => p.id === playlistId)) {
