@@ -14,6 +14,8 @@ const Musify = {
     downloadFolderHandle: null, // For File System Access API
     notifications: true,
     dynamicTheme: true,
+    dynamicButtons: true,
+    dynamicBackground: true,
     search: {
       currentPage: 0,
       totalResults: 0,
@@ -88,6 +90,7 @@ const Musify = {
       recommendedArtists: document.getElementById('recommendedArtists'),
       songList: document.getElementById('songList'),
       albumSearchResults: document.getElementById('albumSearchResults'),
+      playlistSearchResults: document.getElementById('playlistSearchResults'),
       artistSearchResults: document.getElementById('artistSearchResults'),
       userPlaylists: document.getElementById('userPlaylists'),
       historyList: document.getElementById('historyList'),
@@ -105,6 +108,8 @@ const Musify = {
       notificationsToggle: document.getElementById('notificationsToggle'),
       endlessQueueToggle: document.getElementById('endlessQueueToggle'),
       dynamicThemeToggle: document.getElementById('dynamicThemeToggle'),
+      dynamicButtonsToggle: document.getElementById('dynamicButtonsToggle'),
+      dynamicBackgroundToggle: document.getElementById('dynamicBackgroundToggle'),
       repeatIcon: document.getElementById('repeatIcon'),
       // Expanded Player UI
       nowPlayingView: document.getElementById('nowPlayingView'),
@@ -922,13 +927,14 @@ const Musify = {
 
     async search(isNewSearch = false) {
       const { search } = Musify.state;
-      const { songList, albumSearchResults, artistSearchResults } = Musify.ui;
+      const { songList, albumSearchResults, playlistSearchResults, artistSearchResults } = Musify.ui;
       const query = Musify.ui.searchBar.value.trim();
 
       if (search.isLoading || !query) {
         if (isNewSearch) {
             search.songs = { currentPage: 1, results: [], total: 0 };
             search.albums = { currentPage: 1, results: [], total: 0 };
+            search.playlists = { currentPage: 1, results: [], total: 0 };
             search.artists = { currentPage: 1, results: [], total: 0 };
             document.getElementById('searchResultsContainer').style.display = 'none';
             const searchSection = document.getElementById('search');
@@ -941,6 +947,7 @@ const Musify = {
         search.query = query;
         search.songs = { currentPage: 1, results: [], total: 0 };
         search.albums = { currentPage: 1, results: [], total: 0 };
+        search.playlists = { currentPage: 1, results: [], total: 0 };
         search.artists = { currentPage: 1, results: [], total: 0 };
         Musify.state.songQueue = [];
         const initialPrompt = document.querySelector('#search .initial-prompt');
@@ -948,9 +955,11 @@ const Musify = {
         document.getElementById('searchResultsContainer').style.display = 'flex';
         songList.innerHTML = '';
         albumSearchResults.innerHTML = '';
+        playlistSearchResults.innerHTML = '';
         artistSearchResults.innerHTML = '';
         Musify.render._renderMessage(songList, 'Searching for songs...');
         Musify.render._renderMessage(albumSearchResults, 'Searching for albums...');
+        Musify.render._renderMessage(playlistSearchResults, 'Searching for playlists...');
         Musify.render._renderMessage(artistSearchResults, 'Searching for artists...');
       }
 
@@ -959,6 +968,7 @@ const Musify = {
       // Increase the limit to fetch more results initially
       const songData = await Musify.api._fetch(`/search/songs?query=${search.query}&page=${search.songs.currentPage}&limit=50`);
       const albumData = await Musify.api._fetch(`/search/albums?query=${search.query}&page=${search.albums.currentPage}&limit=24`);
+      const playlistData = await Musify.api._fetch(`/search/playlists?query=${search.query}&page=${search.playlists.currentPage}&limit=24`);
       const artistData = await Musify.api._fetch(`/search/artists?query=${search.query}&page=${search.artists.currentPage}&limit=24`);
 
       if (isNewSearch) {
@@ -972,6 +982,11 @@ const Musify = {
           search.albums.results = albumData?.data?.results || [];
           search.albums.total = albumData?.data?.total || 0;
           Musify.render.populate(albumSearchResults, search.albums.results, Musify.render.albumCard, 'No albums found.', 'Album search failed.');
+
+          // Populate playlists
+          search.playlists.results = playlistData?.data?.results || [];
+          search.playlists.total = playlistData?.data?.total || 0;
+          Musify.render.populate(playlistSearchResults, search.playlists.results, Musify.render.playlistCard, 'No playlists found.', 'Playlist search failed.');
 
           // Populate artists
           search.artists.results = artistData?.data?.results || [];
@@ -987,6 +1002,10 @@ const Musify = {
               search.albums.results.push(...albumData.data.results);
               Musify.render.append(albumSearchResults, albumData.data.results, Musify.render.albumCard);
           }
+          if (playlistData?.data?.results) {
+              search.playlists.results.push(...playlistData.data.results);
+              Musify.render.append(playlistSearchResults, playlistData.data.results, Musify.render.playlistCard);
+          }
           if (artistData?.data?.results) {
               search.artists.results.push(...artistData.data.results);
               Musify.render.append(artistSearchResults, artistData.data.results, Musify.render.timelineCard);
@@ -995,6 +1014,7 @@ const Musify = {
 
       search.songs.currentPage++;
       search.albums.currentPage++;
+      search.playlists.currentPage++;
       search.artists.currentPage++;
       search.isLoading = false;
     },
@@ -1672,12 +1692,15 @@ const Musify = {
     updatePlayerTheme(imageUrl) {
       const resetTheme = () => {
           document.documentElement.style.setProperty('--dynamic-primary', 'var(--primary-default)');
-          document.documentElement.style.setProperty('--dynamic-accent', 'var(--accent)');
           document.documentElement.style.setProperty('--dynamic-primary-light', 'var(--primary-light-default)');
           document.documentElement.style.setProperty('--dynamic-primary-dark', 'var(--primary-dark-default)');
+          if (Musify.state.dynamicButtons) {
+            document.documentElement.style.setProperty('--dynamic-accent', 'var(--accent)');
+          }
       };
 
       if (!imageUrl || !window.ColorThief || !Musify.state.dynamicTheme) {
+          document.body.style.background = '';
           resetTheme();
           // When dynamic theme is off, reset all related elements to their default styles
           const allPlayerButtons = document.querySelectorAll('.player-controls button, .player-mobile-controls button, .now-playing-controls button, .now-playing-actions button, .volume-control i');
@@ -1697,9 +1720,6 @@ const Musify = {
           const mobileProgressBar = document.getElementById('mobile-progress-bar');
           if (mobileProgressBar) mobileProgressBar.style.background = '';
           
-          // Reset like buttons separately as they have their own active state
-          const likeButtons = document.querySelectorAll('.player-like-btn');
-          likeButtons.forEach(btn => btn.style.color = '');
 
           return;
       }
@@ -1737,30 +1757,37 @@ const Musify = {
 
               const accentColor = `rgb(${dominantColor.join(',')})`;
 
-              document.documentElement.style.setProperty('--dynamic-primary-dark', darkColor);
-              document.documentElement.style.setProperty('--dynamic-primary', accentColor);
-              document.documentElement.style.setProperty('--dynamic-primary-light', `rgb(${palette[palette.length - 1].join(',')})`);
-              document.documentElement.style.setProperty('--dynamic-accent', accentColor);
+              if (Musify.state.dynamicBackground) {
+                document.body.style.background = `linear-gradient(135deg, ${darkColor} 0%, ${accentColor} 100%)`;
+              } else {
+                document.body.style.background = '';
+              }
 
+              if (Musify.state.dynamicButtons) {
+                document.documentElement.style.setProperty('--dynamic-primary-dark', darkColor);
+                document.documentElement.style.setProperty('--dynamic-primary', accentColor);
+                document.documentElement.style.setProperty('--dynamic-primary-light', `rgb(${palette[palette.length - 1].join(',')})`);
+                document.documentElement.style.setProperty('--dynamic-accent', accentColor);
 
-              // Apply to all player buttons and icons
-              const allPlayerButtons = document.querySelectorAll('.player-controls button, .player-mobile-controls button, .now-playing-controls button, .now-playing-actions button, .volume-control i, .player-like-btn');
-              allPlayerButtons.forEach(btn => btn.style.color = accentColor);
+                // Apply to all player buttons and icons
+                const allPlayerButtons = document.querySelectorAll('.player-controls button, .player-mobile-controls button, .now-playing-controls button, .now-playing-actions button, .volume-control i, .player-like-btn');
+                allPlayerButtons.forEach(btn => btn.style.color = accentColor);
 
-              // Apply to filled/tonal buttons
-              const filledButtons = document.querySelectorAll('#playPauseBtn, .player-mobile-controls .play-btn, #nowPlayingPlayPauseBtn');
-              filledButtons.forEach(btn => {
-                  btn.style.background = accentColor;
-                  btn.style.color = iconColor;
-              });
+                // Apply to filled/tonal buttons
+                const filledButtons = document.querySelectorAll('#playPauseBtn, .player-mobile-controls .play-btn, #nowPlayingPlayPauseBtn');
+                filledButtons.forEach(btn => {
+                    btn.style.background = accentColor;
+                    btn.style.color = iconColor;
+                });
 
-              // Apply to progress bars and sliders
-              const progressBars = [Musify.ui.progressBar, Musify.ui.nowPlayingProgressBar, Musify.ui.volumeSlider, Musify.ui.nowPlayingVolumeSlider];
-              progressBars.forEach(bar => { if(bar) bar.style.accentColor = accentColor; });
+                // Apply to progress bars and sliders
+                const progressBars = [Musify.ui.progressBar, Musify.ui.nowPlayingProgressBar, Musify.ui.volumeSlider, Musify.ui.nowPlayingVolumeSlider];
+                progressBars.forEach(bar => { if(bar) bar.style.accentColor = accentColor; });
 
-              // Apply to mobile progress bar
-              const mobileProgressBar = document.getElementById('mobile-progress-bar');
-              if (mobileProgressBar) mobileProgressBar.style.background = accentColor;
+                // Apply to mobile progress bar
+                const mobileProgressBar = document.getElementById('mobile-progress-bar');
+                if (mobileProgressBar) mobileProgressBar.style.background = accentColor;
+              }
 
               // Apply album art glow
               Musify.ui.nowPlayingImg.style.boxShadow = `0 0 40px -5px ${accentColor}`;
@@ -1824,6 +1851,21 @@ const Musify = {
         if (dynamicTheme !== null) {
             Musify.state.dynamicTheme = dynamicTheme === 'true';
             Musify.ui.dynamicThemeToggle.checked = Musify.state.dynamicTheme;
+            // Also update the sub-settings state
+            const subSettings = document.getElementById('dynamic-sub-settings');
+            if (subSettings) {
+                subSettings.classList.toggle('disabled', !Musify.state.dynamicTheme);
+            }
+        }
+        const dynamicButtons = localStorage.getItem('musify_dynamicButtons');
+        if (dynamicButtons !== null) {
+            Musify.state.dynamicButtons = dynamicButtons === 'true';
+            Musify.ui.dynamicButtonsToggle.checked = Musify.state.dynamicButtons;
+        }
+        const dynamicBackground = localStorage.getItem('musify_dynamicBackground');
+        if (dynamicBackground !== null) {
+            Musify.state.dynamicBackground = dynamicBackground === 'true';
+            Musify.ui.dynamicBackgroundToggle.checked = Musify.state.dynamicBackground;
         }
         const volume = localStorage.getItem('musify_volume');
         if (volume !== null) {
@@ -2188,6 +2230,23 @@ function toggleNotifications(isEnabled) {
 
 function toggleDynamicTheme(isEnabled) {
   Musify.utils.setDynamicTheme(isEnabled);
+  // Enable/disable sub-settings
+  const subSettings = document.getElementById('dynamic-sub-settings');
+  if (subSettings) {
+      subSettings.classList.toggle('disabled', !isEnabled);
+  }
+}
+
+function toggleDynamicButtons(isEnabled) {
+  Musify.state.dynamicButtons = isEnabled;
+  localStorage.setItem('musify_dynamicButtons', isEnabled);
+  Musify.utils.updatePlayerTheme(Musify.ui.currentSongImg.src); // Re-apply theme
+}
+
+function toggleDynamicBackground(isEnabled) {
+    Musify.state.dynamicBackground = isEnabled;
+    localStorage.setItem('musify_dynamicBackground', isEnabled);
+    Musify.utils.updatePlayerTheme(Musify.ui.currentSongImg.src); // Re-apply theme
 }
 
 function toggleEndlessQueue(isEnabled) {

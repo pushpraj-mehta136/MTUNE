@@ -77,6 +77,10 @@
                 <div id="albumSearchResults" class="search-grid"></div>
             </section>
             <section>
+                <h2>Playlists</h2>
+                <div id="albumSearchResults" class="search-grid"></div>
+            </section>
+            <section>
                 <h2>Artists</h2>
                 <div id="artistSearchResults" class="search-grid"></div>
             </section>
@@ -190,6 +194,16 @@
               <div class="settings-option">
                 <div><h3>Dynamic Theming</h3><p>Change player theme based on album art</p></div>
                 <label class="toggle-switch"><input type="checkbox" id="dynamicThemeToggle" onchange="toggleDynamicTheme(this.checked)" checked><span class="slider"></span></label>
+              </div>
+              <div id="dynamic-sub-settings">
+                <div class="settings-option">
+                  <div><h3>Dynamic Buttons</h3><p>Player buttons change color with album art</p></div>
+                  <label class="toggle-switch"><input type="checkbox" id="dynamicButtonsToggle" onchange="toggleDynamicButtons(this.checked)" checked><span class="slider"></span></label>
+                </div>
+                <div class="settings-option">
+                  <div><h3>Dynamic Background</h3><p>App background changes color with album art</p></div>
+                  <label class="toggle-switch"><input type="checkbox" id="dynamicBackgroundToggle" onchange="toggleDynamicBackground(this.checked)" checked><span class="slider"></span></label>
+                </div>
               </div>
             </div>
 
