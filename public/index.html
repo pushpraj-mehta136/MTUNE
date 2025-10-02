@@ -176,20 +176,25 @@
 
       <section id="settings" class="content-section">
         <h1>Settings</h1>
-        <div class="settings-accordion">
-          <div class="accordion-item">
-            <button class="accordion-header">Appearance</button>
-            <div class="accordion-content">
+        <div class="settings-layout">
+          <div class="settings-nav">
+            <button class="settings-nav-item active" data-target="settings-appearance"><i class="fas fa-paint-brush"></i> Appearance</button>
+            <button class="settings-nav-item" data-target="settings-playback"><i class="fas fa-play-circle"></i> Playback</button>
+            <button class="settings-nav-item" data-target="settings-downloads"><i class="fas fa-download"></i> Downloads</button>
+            <button class="settings-nav-item" data-target="settings-data"><i class="fas fa-database"></i> Data Management</button>
+            <button class="settings-nav-item" data-target="settings-general"><i class="fas fa-cog"></i> General</button>
+          </div>
+          <div class="settings-content">
+            <div id="settings-appearance" class="settings-pane active">
+              <h2>Appearance</h2>
               <div class="settings-option">
                 <div><h3>Dynamic Theming</h3><p>Change player theme based on album art</p></div>
                 <label class="toggle-switch"><input type="checkbox" id="dynamicThemeToggle" onchange="toggleDynamicTheme(this.checked)" checked><span class="slider"></span></label>
               </div>
             </div>
-          </div>
 
-          <div class="accordion-item">
-            <button class="accordion-header">Playback</button>
-            <div class="accordion-content">
+            <div id="settings-playback" class="settings-pane">
+              <h2>Playback</h2>
               <div class="settings-option">
                 <div><h3>Audio Quality</h3><p>Set your preferred audio quality</p></div>
                 <select id="audioQuality" class="settings-select">
@@ -203,21 +208,17 @@
                 <label class="toggle-switch"><input type="checkbox" id="endlessQueueToggle" onchange="toggleEndlessQueue(this.checked)" checked><span class="slider"></span></label>
               </div>
             </div>
-          </div>
 
-          <div class="accordion-item">
-            <button class="accordion-header">Downloads</button>
-            <div class="accordion-content">
+            <div id="settings-downloads" class="settings-pane">
+              <h2>Downloads</h2>
               <div class="settings-option">
                 <div><h3>Download Location</h3><p>Choose where to save your music. Your browser will ask for permission.</p></div>
                 <button class="settings-btn" onclick="Musify.utils.selectDownloadFolder()"><i class="fas fa-folder-open"></i> Choose Folder</button>
               </div>
             </div>
-          </div>
 
-          <div class="accordion-item">
-            <button class="accordion-header">Data Management</button>
-            <div class="accordion-content">
+            <div id="settings-data" class="settings-pane">
+              <h2>Data Management</h2>
               <div class="settings-option">
                 <div><h3>Clear Listening History</h3><p>This will permanently delete your listening history.</p></div>
                 <button class="settings-btn danger-btn" onclick="clearHistory()"><i class="fas fa-trash"></i> Clear History</button>
@@ -231,11 +232,9 @@
                 <button class="settings-btn danger-btn reset-btn" onclick="clearAllData()"><i class="fas fa-exclamation-triangle"></i> Reset App</button>
               </div>
             </div>
-          </div>
 
-          <div class="accordion-item">
-            <button class="accordion-header">General</button>
-            <div class="accordion-content">
+            <div id="settings-general" class="settings-pane">
+              <h2>General</h2>
               <div class="settings-option">
                 <div><h3>Notifications</h3><p>Enable or disable app notifications</p></div>
                 <label class="toggle-switch">
@@ -273,9 +272,7 @@
           </div>
       </div>
       <div class="player-mobile-controls">
-          <button class="prev-btn" onclick="prevSong()"><i class="fas fa-backward-step"></i></button>
           <button class="play-btn" onclick="togglePlayPause()"><i id="mobilePlayPauseIcon" class="fas fa-play"></i></button>
-          <button class="next-btn" onclick="nextSong()"><i class="fas fa-forward-step"></i></button>
       </div>
       <div class="player-right-controls">
         <div class="volume-control">
@@ -357,6 +354,22 @@
     <div class="bottom-sheet-overlay" onclick="Musify.utils.hideBottomSheet()"></div>
     <div class="bottom-sheet-content">
       <!-- Menu items will be injected here -->
+    </div>
+  </div>
+
+  <!-- Add to Playlist Modal -->
+  <div id="playlistModal" class="modal-overlay" style="display: none;">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h2>Add to Playlist</h2>
+        <button class="modal-close-btn" onclick="Musify.utils.hidePlaylistModal()"><i class="fas fa-times"></i></button>
+      </div>
+      <div class="modal-body">
+        <button class="create-playlist-btn-modal" onclick="Musify.utils.createNewPlaylistFromModal()"><i class="fas fa-plus"></i> Create New Playlist</button>
+        <ul id="modalPlaylistList" class="modal-playlist-list">
+          <!-- User playlists will be injected here -->
+        </ul>
+      </div>
     </div>
   </div>
 
