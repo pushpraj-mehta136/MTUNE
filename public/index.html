@@ -11,6 +11,7 @@
   <script src="https://cdn.jsdelivr.net/npm/id3-writer@1/dist/browser.min.js"></script>
 </head>
 <body>
+  <div id="app-background" class="app-background"></div>
   <div id="notification-container"></div>
   <div id="app" class="app-container">
     <aside class="sidebar">
@@ -180,10 +181,6 @@
             <button class="accordion-header">Appearance</button>
             <div class="accordion-content">
               <div class="settings-option">
-                <div><h3>Dark Mode</h3><p>Toggle between light and dark themes</p></div>
-                <label class="toggle-switch"><input type="checkbox" onchange="toggleDarkMode()"><span class="slider"></span></label>
-              </div>
-              <div class="settings-option">
                 <div><h3>Dynamic Theming</h3><p>Change player theme based on album art</p></div>
                 <label class="toggle-switch"><input type="checkbox" id="dynamicThemeToggle" onchange="toggleDynamicTheme(this.checked)" checked><span class="slider"></span></label>
               </div>
@@ -297,6 +294,7 @@
     <div class="now-playing-content">
       <button class="collapse-btn" onclick="Musify.navigation.toggleNowPlayingView(false)"><i class="fas fa-chevron-down"></i></button>
       
+      
       <div class="now-playing-art">
         <img id="nowPlayingImg" src="default_cover.jpg" alt="Album Art"/>
       </div>
@@ -341,6 +339,10 @@
         <div class="queue-header">
           <h2>Up Next</h2>
           <button class="collapse-btn" onclick="Musify.navigation.toggleQueueView(false)"><i class="fas fa-times"></i></button>
+          <div class="contextual-search-bar queue-search-bar">
+            <i class="fas fa-search"></i>
+            <input type="search" oninput="filterSongList(this.value, 'queueList')" placeholder="Filter queue...">
+          </div>
           <button class="clear-queue-btn" onclick="Musify.utils.clearQueue()">Clear Queue</button>
         </div>
         <div id="queueList" class="song-list"></div>

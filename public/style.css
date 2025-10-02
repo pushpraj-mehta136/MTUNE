@@ -554,7 +554,6 @@ body.dark .scrollable-row::-webkit-scrollbar-track {
   align-items: center;
   box-shadow: var(--glass-shadow);
   padding: 1rem;
-  position: relative; /* For positioning the play button */
 }
 .scrollable-row .song, .scrollable-row .playlist, .scrollable-row .album, .scrollable-row .artist {
     width: 280px; /* Restore fixed width only for items in scrollable rows */
@@ -580,37 +579,22 @@ body.dark .scrollable-row::-webkit-scrollbar-track {
     cursor: pointer;
 }
 
-/* Hide play button by default */
-.song .play-btn, .song .options-btn {
+.song .play-btn {
     opacity: 0;
-    pointer-events: none;
-    transition: opacity 0.3s ease;
+    transition: opacity 0.2s ease;
 }
 
-/* Show buttons on hover (desktop) */
-.song:hover .play-btn, .song:hover .options-btn {
+.song:hover .play-btn {
     opacity: 1;
-    pointer-events: auto;
 }
 
-/* Style for the currently playing song */
 .song.is-playing .play-btn {
     opacity: 1;
-    pointer-events: auto;
     background: var(--accent);
     color: white;
 }
 .song.is-playing .song-duration {
     display: none;
-}
-
-/* Overlay play button on album art */
-.song .play-btn {
-    position: absolute;
-    top: 50%;
-    left: 40px; /* Center over the 60px image with 1rem padding */
-    transform: translate(-50%, -50%);
-    margin: 0;
 }
 
 /* Dynamic buttons inside cards */
@@ -627,6 +611,7 @@ body.dark .scrollable-row::-webkit-scrollbar-track {
   display: flex;
   align-items: center;
   justify-content: center;
+  margin-left: auto; /* Pushes button to the right */
   flex-shrink: 0; /* Prevent button from shrinking */
 }
 
@@ -652,10 +637,12 @@ body.dark .scrollable-row::-webkit-scrollbar-track {
 }
 
 .song .options-btn {
-    position: absolute;
-    right: 1rem;
-    top: 50%;
-    transform: translateY(-50%);
+    margin-left: auto; /* Push options button to the right */
+    margin-right: 0.25rem;
+}
+
+.song .play-btn {
+    margin-left: 0; /* Remove auto margin */
 }
 
 .player-like-btn {

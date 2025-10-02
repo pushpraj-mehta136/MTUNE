@@ -273,7 +273,7 @@ const Musify = {
         : this._createButton('options-btn', ``, 'More options', 'fas fa-ellipsis-v'); // Onclick handled by event listener
       
       const playBtn = this._createButton('play-btn', ``, `Play ${song.title}`, 'fas fa-play'); // Onclick handled by event listener
-      div.append(img, playBtn, infoDiv, durationSpan);
+      div.append(img, infoDiv, durationSpan, playBtn);
       return div;
     },
     playlistCard(pl) {
@@ -599,10 +599,6 @@ const Musify = {
       document.querySelectorAll('#queueList .song').forEach(el => el.classList.remove('is-playing'));
       const currentQueueItem = document.querySelector(`#queueList .song[data-song-id="${song.id}"]`);
       if (currentQueueItem) currentQueueItem.classList.add('is-playing');
-      // Also update the main song lists
-      document.querySelectorAll('.main-content .song').forEach(el => el.classList.remove('is-playing'));
-      const currentSongItem = document.querySelector(`.main-content .song[data-song-id="${song.id}"]`);
-      if (currentSongItem) currentSongItem.classList.add('is-playing');
     },
     updateMediaSession(song) {
         if ('mediaSession' in navigator) {
@@ -641,7 +637,6 @@ const Musify = {
     next() {
       // Mobile-only: if player is compact, show next/prev buttons briefly on song change
       if (window.innerWidth <= 768) {
-          // this.showMobileControlsTemporarily(); // Removed as this function no longer exists
       }
       const state = Musify.state;
       if (state.songQueue.length === 0) return;
@@ -654,7 +649,6 @@ const Musify = {
     },
     prev() {
       if (window.innerWidth <= 768) {
-          // this.showMobileControlsTemporarily(); // Removed as this function no longer exists
       }
       const state = Musify.state;
       if (state.songQueue.length === 0) return;
@@ -1251,7 +1245,6 @@ const Musify = {
     addSongCardInteractionHandlers() {
         const mainContent = Musify.ui.mainContent;
         let longPressTimer;
-        const longPressDuration = 500; // 500ms for long press
 
         mainContent.addEventListener('mousedown', e => {
             const songCard = e.target.closest('.song');
@@ -1260,40 +1253,15 @@ const Musify = {
             }
         });
 
-        mainContent.addEventListener('touchstart', e => {
-            const songCard = e.target.closest('.song');
-            if (!songCard) return;
-            longPressTimer = setTimeout(() => {
-                const songId = songCard.dataset.songId;
-                this.showSongContextMenu(e, songId);
-                longPressTimer = null; // Prevent click from firing
-            }, longPressDuration);
-        }, { passive: true });
-
-        const cancelLongPress = () => {
-            if (longPressTimer) {
-                clearTimeout(longPressTimer);
-                longPressTimer = undefined;
-            }
-        };
-        mainContent.addEventListener('touchend', cancelLongPress);
-        mainContent.addEventListener('touchmove', cancelLongPress);
-
         mainContent.addEventListener('click', e => {
-            if (longPressTimer === undefined) return; // Long press already handled
-            cancelLongPress();
-
             const songCard = e.target.closest('.song');
             if (!songCard) return;
             
             const songId = songCard.dataset.songId;
             if (e.target.closest('.remove-from-queue-btn')) return; // Let the remove button do its job
 
-            // Play if image is clicked, otherwise show context menu
-            if (e.target.closest('img') || e.target.closest('.play-btn')) {
+            if (e.target.closest('img')) {
                 Musify.player.playSongFromCard(e, songId);
-            } else {
-                this.showSongContextMenu(e, songId);
             }
         });
 
@@ -1926,6 +1894,10 @@ function toggleEndlessQueue(isEnabled) {
 function toggleFavourite(songId) {
     Musify.utils.toggleFavourite(songId);
 }
+
+
+
+
 
 function filterSongList(query, containerId) {
     Musify.utils.filterSongList(query, containerId);
