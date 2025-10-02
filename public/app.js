@@ -12,6 +12,7 @@ const MTUNE = {
     audioQuality: '320kbps',
     endlessQueue: true,
     notifications: true,
+    resumePlayback: true,
     dynamicTheme: true,
     dynamicButtons: true,
     dynamicBackground: true,
@@ -107,6 +108,7 @@ const MTUNE = {
       notificationsToggle: document.getElementById('notificationsToggle'),
       endlessQueueToggle: document.getElementById('endlessQueueToggle'),
       dynamicButtonsToggle: document.getElementById('dynamicButtonsToggle'),
+      resumePlaybackToggle: document.getElementById('resumePlaybackToggle'),
       dynamicBackgroundToggle: document.getElementById('dynamicBackgroundToggle'),
       repeatIcon: document.getElementById('repeatIcon'),
       // Expanded Player UI
@@ -1309,6 +1311,15 @@ const MTUNE = {
             stateKey: 'notifications',
             storageKey: 'musify_notifications',
         },
+        resumePlayback: {
+            stateKey: 'resumePlayback',
+            storageKey: 'musify_resumePlayback',
+        },
+    },
+    vibrate() {
+        if ('vibrate' in navigator && window.innerWidth <= 768) {
+            navigator.vibrate(50); // A short, crisp vibration for feedback
+        }
     },
     addContextMenuHandlers() {
         const mainContent = MTUNE.ui.mainContent;
@@ -1362,8 +1373,9 @@ const MTUNE = {
             touchEndX = event.changedTouches[0].screenX;
             const deltaX = touchEndX - touchStartX;
             if (Math.abs(deltaX) > 50) { // Minimum swipe distance
-                if (deltaX < 0) Musify.player.next(); // Swipe left
-                if (deltaX > 0) Musify.player.prev(); // Swipe right
+                this.vibrate();
+                if (deltaX < 0) MTUNE.player.next(); // Swipe left
+                if (deltaX > 0) MTUNE.player.prev(); // Swipe right
             }
             touchStartX = 0; // Reset
         }, { passive: true });
@@ -1419,13 +1431,15 @@ const MTUNE = {
         let touchCurrentX = 0;
         let swipedItem = null;
 
+        const SWIPE_THRESHOLD = 80; // Minimum pixels to trigger an action
+
         queueList.addEventListener('touchstart', e => {
             const songCard = e.target.closest('.song');
             if (songCard) {
                 touchStartX = e.changedTouches[0].clientX;
                 swipedItem = songCard;
                 // Add a class to disable transitions during swipe
-                swipedItem.classList.add('swiping');
+                swipedItem.classList.add('is-swiping');
             }
         }, { passive: true });
 
@@ -1433,25 +1447,31 @@ const MTUNE = {
             if (!swipedItem) return;
             touchCurrentX = e.changedTouches[0].clientX;
             const deltaX = touchCurrentX - touchStartX;
-            // Only allow right-to-left swipe
-            if (deltaX < 0) {
-                swipedItem.style.transform = `translateX(${deltaX}px)`;
-            }
+            swipedItem.style.transform = `translateX(${deltaX}px)`;
         }, { passive: true });
 
         queueList.addEventListener('touchend', e => {
             if (!swipedItem) return;
             const deltaX = e.changedTouches[0].clientX - touchStartX;
-            swipedItem.classList.remove('swiping');
+            swipedItem.classList.remove('is-swiping');
+            const songId = swipedItem.dataset.songId;
 
-            // If swipe is more than 1/3 of the card width, remove it
-            if (deltaX < -50) { // A small swipe is enough to trigger options
-                const songId = swipedItem.dataset.songId;
+            // Swipe from right to left (to remove)
+            if (deltaX < -SWIPE_THRESHOLD) {
+                this.vibrate();
+                this.removeFromQueue(null, songId, swipedItem);
+            }
+            // Swipe from left to right (to show options)
+            else if (deltaX > SWIPE_THRESHOLD) {
+                this.vibrate();
                 this.showSongBottomSheet(songId);
+                // Reset position after showing menu
+                swipedItem.style.transform = 'translateX(0)';
             } else {
                 // Reset position if swipe was not enough
                 swipedItem.style.transform = 'translateX(0)';
             }
+
             swipedItem = null;
             touchStartX = 0;
         });
@@ -1520,8 +1540,9 @@ const MTUNE = {
             const deltaX = touchEndX - touchStartX;
 
             if (Math.abs(deltaX) > 60) { // Minimum swipe distance
-                if (deltaX < 0) Musify.player.next(); // Swipe Left
-                else Musify.player.prev(); // Swipe Right
+                this.vibrate();
+                if (deltaX < 0) MTUNE.player.next(); // Swipe Left
+                else MTUNE.player.prev(); // Swipe Right
             }
             touchStartX = 0; // Reset
         }, { passive: true });
@@ -1965,6 +1986,12 @@ const MTUNE = {
             MTUNE.state.dynamicBackground = dynamicBackground === 'true';
             MTUNE.ui.dynamicBackgroundToggle.checked = MTUNE.state.dynamicBackground;
         }
+        const resumePlayback = localStorage.getItem('musify_resumePlayback');
+        if (resumePlayback !== null) {
+            const isEnabled = resumePlayback === 'true';
+            MTUNE.state.resumePlayback = isEnabled;
+            if (MTUNE.ui.resumePlaybackToggle) MTUNE.ui.resumePlaybackToggle.checked = isEnabled;
+        }
         const volume = localStorage.getItem('musify_volume');
         if (volume !== null) {
             const volumeValue = parseFloat(volume);
@@ -1986,7 +2013,7 @@ const MTUNE = {
     },
     async applyPlaybackState() {
         const playbackStateJSON = localStorage.getItem('musify_playbackState');
-        if (playbackStateJSON) {
+        if (playbackStateJSON && MTUNE.state.resumePlayback) {
             const playbackState = JSON.parse(playbackStateJSON);
             if (playbackState.songQueue && playbackState.songQueue.length > 0 && playbackState.currentSongIndex > -1) {
                 MTUNE.state.songQueue = playbackState.songQueue;

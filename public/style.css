@@ -7,9 +7,9 @@
   --primary-light-default: #161b22;
   --primary-dark: #010409; /* Deep dark for background */
   --primary-dark-default: #010409;
-  --accent: #0b8ae1;
-  --accent-rgb: 11, 138, 225;
-  --accent-light: #74c0fc;
+  --accent: #f00a30;
+  --accent-rgb: 240, 10, 48;
+  --accent-light: #f35470;
   --text-primary: #e6edf3; /* Brighter text */
   --text-secondary: #8b949e;
   --surface: rgba(22, 27, 34, 0.6);
@@ -283,8 +283,8 @@ body.dark .main-content::-webkit-scrollbar-thumb {
 
 .search-bar input:focus {
   outline: none;
-  border-color: var(--accent-light);
-  box-shadow: 0 0 0 3px rgba(11, 138, 225, 0.3);
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgba(var(--accent-rgb), 0.3);
 }
 
 .search-bar input::placeholder {
@@ -301,12 +301,12 @@ body.dark .main-content::-webkit-scrollbar-thumb {
   font-size: 1.3rem;
   cursor: pointer;
   transition: var(--transition);
-  box-shadow: 0 4px 15px rgba(11, 138, 225, 0.3);
+  box-shadow: 0 4px 15px rgba(var(--accent-rgb), 0.3);
 }
 
 .search-bar button:hover {
   transform: scale(1.05);
-  box-shadow: 0 6px 20px rgba(11, 138, 225, 0.4);
+  box-shadow: 0 6px 20px rgba(var(--accent-rgb), 0.4);
 }
 
 .contextual-search-bar {
@@ -1588,7 +1588,7 @@ input:checked + .slider:before {
   display: flex;
   flex-direction: column;
   align-items: center;
-  justify-content: space-around; /* Better vertical distribution */
+  justify-content: space-between; /* Push content to top and bottom */
   padding: 2rem;
   color: white;
   text-align: center;
@@ -1646,6 +1646,12 @@ input:checked + .slider:before {
   transition: transform 0.4s ease, box-shadow 0.4s ease;
 }
 
+.now-playing-art {
+    flex-grow: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
 .now-playing-art img:hover {
     transform: scale(1.03);
 }
@@ -1653,13 +1659,14 @@ input:checked + .slider:before {
 .now-playing-info h2 {
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  justify-content: center; /* Center the info block */
   width: 100%;
   max-width: 500px;
   gap: 1rem;
 }
 
 .now-playing-info-text {
+  padding: 0 2rem; /* Add padding to prevent text from touching edges */
   text-align: left;
   flex-grow: 1;
 }
@@ -1717,15 +1724,6 @@ input:checked + .slider:before {
     animation: wave-animation 2s ease infinite;
 }
 
-.now-playing-controls {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 1.5rem; /* Increased gap */
-  width: 100%;
-  max-width: 500px;
-}
-
 .now-playing-controls button {
   background: transparent;
   border: none;
@@ -1737,6 +1735,15 @@ input:checked + .slider:before {
   cursor: pointer;
   text-shadow: 0 1px 3px rgba(0, 0, 0, 0.4); /* Improves icon visibility on any background */
   transition: var(--transition);
+}
+
+.now-playing-controls {
+    display: flex;
+    align-items: center;
+    justify-content: space-between; /* Space out controls */
+    width: 100%;
+    max-width: 400px;
+    margin: 1rem 0;
 }
 
 .now-playing-controls button:hover,
@@ -1758,10 +1765,11 @@ input:checked + .slider:before {
 
 .now-playing-controls .play-btn {
   background: white;
-  color: #111;
-  font-size: 2rem;
-  width: 72px;
-  height: 72px;
+  color: var(--primary-dark);
+  font-size: 2.2rem; /* Larger icon */
+  width: 80px; /* Larger button */
+  height: 80px;
+  box-shadow: 0 5px 20px rgba(0,0,0,0.3);
 }
 
 .now-playing-controls .play-btn:hover {
@@ -1769,13 +1777,13 @@ input:checked + .slider:before {
 }
 
 .now-playing-extra-controls {
-  position: absolute;
-  bottom: 2rem;
-  left: 2rem;
-  right: 2rem;
+  width: 100%;
+  max-width: 500px;
   display: flex;
   justify-content: space-between;
   align-items: center;
+  padding: 1rem 0;
+  margin-bottom: 1rem; /* Add some space from the bottom edge */
 }
 
 .now-playing-actions {
@@ -1789,6 +1797,10 @@ input:checked + .slider:before {
   width: 44px;
   height: 44px;
   border-radius: 50%;
+  font-size: 1.2rem;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.4); /* Improves icon visibility */
+}
+
   font-size: 1rem;
   text-shadow: 0 1px 3px rgba(0, 0, 0, 0.4); /* Improves icon visibility */
 }
@@ -2094,7 +2106,7 @@ input:checked + .slider:before {
     transition: transform 0.3s ease, opacity 0.3s ease;
 }
 
-.queue-container .song.swiping {
+.queue-container .song.is-swiping {
     transition: none; /* Disable transition during active swipe */
 }
 
@@ -2111,12 +2123,21 @@ input:checked + .slider:before {
         max-width: 300px;
         max-height: 300px;
     }
-    .now-playing-extra-controls {
-        flex-direction: column;
-        gap: 1.5rem;
-        position: static; /* Let it flow in the flex layout */
+    .now-playing-info {
+        margin-top: 2rem;
     }
-    .queue-container {
+    .now-playing-controls {
+        order: 1; /* Move controls below progress bar */
+        margin: 2rem 0;
+    }
+    .now-playing-progress {
+        order: 0;
+    }
+    .now-playing-extra-controls {
+        order: 2;
+        width: 100%;
+        justify-content: space-around; /* Evenly space the items */
+    }    .queue-container {
         max-width: 100%; /* Full width on mobile */
     }
     .queue-header, .now-playing-in-queue, .queue-container .song-list {
