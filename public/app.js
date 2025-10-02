@@ -184,7 +184,6 @@ const Musify = {
 
 
     // Load initial state
-    this.utils.loadTheme();
     this.utils.loadState();
     this.utils.applyPlaybackState();
     // After loading state and applying playback state, ensure buttons reflect state
@@ -506,13 +505,7 @@ const Musify = {
                     songs = data?.data?.songs || [];
                     break;
                 case 'artist':
-                    data = await Musify.api.getArtistDetails(itemId);
-                    if (useDiscoverContext) {
-                        const artistFromDiscover = Musify.state.discover.artists.find(a => a.id === itemId);
-                        songs = artistFromDiscover?.songs || [];
-                    } else {
-                        songs = data?.data?.topSongs || [];
-                    }
+                    songs = useDiscoverContext ? Musify.state.discover.artists.find(a => a.id === itemId)?.topSongs || [] : (await Musify.api.getArtistDetails(itemId))?.data?.topSongs || [];
                     break;
                 case 'song':
                     data = await Musify.api.getSongDetails(itemId);
@@ -885,7 +878,7 @@ const Musify = {
       // Fetch songs for each recommended artist
       if (artistData?.data?.results) {
           const artistSongPromises = artistData.data.results.map(artist => 
-              Musify.api.getArtistSongs(artist.id, 1).then(songs => ({...artist, songs: songs?.data || [] }))
+              Musify.api.getArtistDetails(artist.id).then(details => ({...artist, topSongs: details?.data?.topSongs || [] }))
           );
           artistData.data.results = await Promise.all(artistSongPromises);
       }
@@ -1208,7 +1201,7 @@ const Musify = {
         ]);
 
         const details = artistDetailsData?.data;
-        const songs = artistSongsData?.data;
+        const songs = artistSongsData?.data?.songs;
 
         if (details) {
             Musify.render.artistHeader(details);
@@ -1489,25 +1482,6 @@ const Musify = {
             touchStartX = 0; // Reset
         }, { passive: true });
     },
-    applyRippleEffect(event) {
-        const button = event.target.closest('button');
-
-        if (button) {
-            const circle = document.createElement('span');
-            const diameter = Math.max(button.clientWidth, button.clientHeight);
-            const radius = diameter / 2;
-
-            circle.style.width = circle.style.height = `${diameter}px`;
-            circle.style.left = `${event.clientX - button.getBoundingClientRect().left - radius}px`;
-            circle.style.top = `${event.clientY - button.getBoundingClientRect().top - radius}px`;
-            circle.classList.add('ripple');
-
-            const ripple = button.getElementsByClassName('ripple')[0];
-            if (ripple) ripple.remove();
-            
-            button.appendChild(circle);
-        }
-    },
     handleInfiniteScroll(event) {
         const element = event.target;
         const { search, navigation } = Musify.state;
@@ -1771,26 +1745,7 @@ const Musify = {
         };
     },
     toggleDarkMode() {
-      Musify.state.isDarkMode = !Musify.state.isDarkMode;
-      document.body.classList.toggle('dark-mode', Musify.state.isDarkMode);
-      localStorage.setItem('musify_dark_mode', Musify.state.isDarkMode);
-    },
-    toggleDynamicTheme() {
-      Musify.state.dynamicTheme = !Musify.state.dynamicTheme;
-      localStorage.setItem('musify_dynamic_theme', Musify.state.dynamicTheme);
-      // Re-apply theme based on current song
-      if (Musify.state.currentSongIndex > -1) {
-          const currentSong = Musify.state.songQueue[Musify.state.currentSongIndex];
-          this.updatePlayerTheme(Musify.render._getImageUrl(currentSong.image));
-      } else {
-          this.updatePlayerTheme(null); // Reset to default
-      }
-    },
-    saveFavourites() {
-        localStorage.setItem('musify_favourites', JSON.stringify(Musify.state.favourites));
-    },
-    saveUserPlaylists() {
-        localStorage.setItem('musify_user_playlists', JSON.stringify(Musify.state.userPlaylists));
+      // This function is no longer needed as light mode is removed.
     },
     async savePlaylist(playlistId) {
         const existing = Musify.state.savedPlaylists.find(p => p.id === playlistId);
@@ -1807,18 +1762,6 @@ const Musify = {
         } else {
             this.showNotification('Failed to save playlist.', 'error');
         }
-    },
-    showNotification(message, type = 'info') {
-        const notification = document.getElementById('notification');
-        notification.textContent =      document.body.classList.toggle('dark');
-      localStorage.setItem('darkMode', document.body.classList.contains('dark'));
-    },
-    loadTheme() {
-      if (localStorage.getItem('darkMode') === 'true') {
-        document.body.classList.add('dark');
-        const toggle = document.querySelector('.toggle-switch input');
-        if (toggle) toggle.checked = true;
-      }
     },
     loadState() {
         const history = localStorage.getItem('musify_history');
@@ -1895,15 +1838,6 @@ const Musify = {
                 }
             }
         }
-    },
-    saveFavourites() {
-        localStorage.setItem('musify_favourites', JSON.stringify(Musify.state.favourites));
-    },
-    saveUserPlaylists() {
-        localStorage.setItem('musify_userPlaylists', JSON.stringify(Musify.state.userPlaylists));
-    },
-    saveSavedPlaylists() {
-        localStorage.setItem('musify_savedPlaylists', JSON.stringify(Musify.state.savedPlaylists));
     },
     addSongToPlaylist(songId, playlistId) {
         const song = Musify.state.songQueue.find(s => s.id === songId)
@@ -2216,10 +2150,6 @@ function toggleShuffle() {
 
 function toggleRepeat() {
   Musify.player.toggleRepeat();
-}
-
-function toggleDarkMode() {
-  Musify.utils.toggleDarkMode();
 }
 
 function toggleNotifications(isEnabled) {

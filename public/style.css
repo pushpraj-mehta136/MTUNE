@@ -1,21 +1,21 @@
 /* CSS Variables for Glassmorphism Theme */
 :root {
-  /* Light Theme (Default) */
-  --primary: #f0f9ff; /* Lighter base */
-  --primary-default: #f0f9ff;
-  --primary-light: #ffffff;
-  --primary-light-default: #ffffff;
-  --primary-dark: #e0f2fe; /* sky-100 */
-  --primary-dark-default: #e0f2fe;
+  /* Dark Theme (Default) */
+  --primary: #0d1117;
+  --primary-default: #0d1117;
+  --primary-light: #161b22; /* Slightly lighter for surfaces */
+  --primary-light-default: #161b22;
+  --primary-dark: #010409; /* Deep dark for background */
+  --primary-dark-default: #010409;
   --accent: #0b8ae1;
   --accent-rgb: 11, 138, 225;
   --accent-light: #74c0fc;
-  --text-primary: #0c243b;
-  --text-secondary: #475569; /* slate-600 */
-  --surface: rgba(255, 255, 255, 0.4);
-  --glass-bg: rgba(255, 255, 255, 0.4);
-  --glass-border: rgba(0, 0, 0, 0.1);
-  --glass-shadow: 0 8px 24px rgba(31, 38, 135, 0.08);
+  --text-primary: #e6edf3; /* Brighter text */
+  --text-secondary: #8b949e;
+  --surface: rgba(22, 27, 34, 0.6);
+  --glass-bg: rgba(22, 27, 34, 0.5); /* Softer glass */
+  --glass-border: rgba(255, 255, 255, 0.08);
+  --glass-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
   --dynamic-primary: var(--primary-light);
   --dynamic-accent: var(--accent);
   --dynamic-primary-light: var(--primary);
@@ -23,26 +23,6 @@
   --card-radius: 20px;
   --element-radius: 12px;
   --transition: all 0.3s ease;
-}
-
-body.dark {
-  /* Dark Theme */
-  --primary: #0d1117;
-  --primary-default: #0d1117;
-  --primary-light: #161b22; /* Slightly lighter for surfaces */
-  --primary-light-default: #161b22;
-  --primary-dark: #010409; /* Deep dark for background */
-  --primary-dark-default: #010409;
-  --text-primary: #e6edf3; /* Brighter text */
-  --text-secondary: #8b949e;
-  --surface: rgba(22, 27, 34, 0.6);
-  --glass-bg: rgba(22, 27, 34, 0.5); /* Softer glass */
-  --glass-border: rgba(255, 255, 255, 0.08);
-  --glass-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
-  --dynamic-accent: var(--accent);
-  --dynamic-primary: var(--primary-light);
-  --dynamic-primary-light: var(--primary);
-  --dynamic-primary-dark: var(--primary-dark);
 }
 
 @keyframes fadeIn {
@@ -1238,15 +1218,6 @@ input:checked + .slider:before {
 .error {
   color: #ff8a80; /* A soft red for errors */
 }
-
-body.dark .error {
-  color: #ff5252;
-}
-
-body.dark .slider:before {
-    background-color: #2c3e50;
-}
-
 
 /* --- Details Page Redesign (Playlist, Album, Artist) --- */
 .details-page-wrapper {
