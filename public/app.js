@@ -14,6 +14,7 @@ const MTUNE = {
     notifications: true,
     resumePlayback: true,
     dynamicTheme: true,
+    crossfadeDuration: 0,
     dynamicButtons: true,
     dynamicBackground: true,
     search: {
@@ -30,6 +31,8 @@ const MTUNE = {
       currentSection: 'discover',
       loadedSections: new Set(), // Keep track of loaded sections
     },
+    sleepTimerId: null,
+    sleepTimerEndTime: null,
   },
 
   ui: {},
@@ -127,6 +130,8 @@ const MTUNE = {
       nowPlayingOptionsBtn: document.getElementById('nowPlayingOptionsBtn'),
       nowPlayingVolumeSlider: document.getElementById('nowPlayingVolumeSlider'),
       lyricsContainer: document.getElementById('lyricsContainer'),
+      volumeIcon: document.getElementById('volumeIcon'),
+      nowPlayingVolumeIcon: document.getElementById('nowPlayingVolumeIcon'),
       lyricsContent: document.getElementById('lyricsContent'),
       queueContainer: document.getElementById('queueContainer'),
       queueList: document.getElementById('queueList'),
@@ -134,6 +139,10 @@ const MTUNE = {
       // Playlist Modal
       playlistModal: document.getElementById('playlistModal'),
       modalPlaylistList: document.getElementById('modalPlaylistList'),
+      // Sleep Timer
+      sleepTimerBtn: document.getElementById('sleepTimerBtn'),
+      sleepTimerOptions: document.getElementById('sleepTimerOptions'),
+      crossfadeDuration: document.getElementById('crossfadeDuration'),
     };
     this.ui.volumeSlider = document.getElementById('volumeSlider');
 
@@ -161,6 +170,8 @@ const MTUNE = {
     window.addEventListener('beforeunload', () => this.utils.savePlaybackState());
     this.ui.volumeSlider.addEventListener('input', (e) => this.player.setVolume(e.target.value));
     this.ui.nowPlayingVolumeSlider.addEventListener('input', (e) => this.player.setVolume(e.target.value));
+    this.utils.setupSleepTimer();
+    this.ui.crossfadeDuration.addEventListener('change', (e) => this.utils.setCrossfade(e.target.value));
     this.ui.audioQuality.addEventListener('change', (e) => this.utils.setAudioQuality(e.target.value));
     document.querySelectorAll('.accordion-header').forEach(header => {
         header.addEventListener('click', () => {
@@ -416,9 +427,13 @@ const MTUNE = {
                 </div>
             </div>
             <div class="details-header-actions">
+                <button class="icon-btn ${MTUNE.utils.isPlaylistSaved(playlist.id) ? 'active' : ''}" onclick="MTUNE.utils.toggleSavePlaylist('${playlist.id}')" title="Save to Library"><i class="fas fa-bookmark"></i></button>
                 <button class="nav-btn active" onclick="MTUNE.player.playFromQueue(MTUNE.state.songQueue[0].id)"><i class="fas fa-play"></i> Play All</button>
             </div>
         `;
+        // Re-check active state after rendering
+        const bookmarkBtn = header.querySelector('.icon-btn');
+        if (bookmarkBtn) bookmarkBtn.classList.toggle('active', MTUNE.utils.isPlaylistSaved(playlist.id));
     },
     albumHeader(album) {
         const header = MTUNE.ui.albumDetailsHeader;
@@ -756,8 +771,23 @@ const MTUNE = {
     setVolume(value) {
         MTUNE.ui.audioPlayer.volume = value;
         localStorage.setItem('musify_volume', value);
-        MTUNE.ui.volumeSlider.value = value;
-        MTUNE.ui.nowPlayingVolumeSlider.value = value;
+        const { volumeSlider, nowPlayingVolumeSlider, volumeIcon, nowPlayingVolumeIcon } = MTUNE.ui;
+        volumeSlider.value = value;
+        nowPlayingVolumeSlider.value = value;
+
+        let iconClass = 'fas fa-volume-high';
+        if (value == 0) {
+            iconClass = 'fas fa-volume-xmark';
+        } else if (value <= 0.5) {
+            iconClass = 'fas fa-volume-low';
+        }
+        volumeIcon.className = iconClass;
+        nowPlayingVolumeIcon.className = iconClass;
+
+        // Update visual indicator
+        const progressPercent = value * 100;
+        volumeSlider.style.setProperty('--volume-progress', `${progressPercent}%`);
+        nowPlayingVolumeSlider.style.setProperty('--volume-progress', `${progressPercent}%`);
     },
     formatTime(seconds) {
         const minutes = Math.floor(seconds / 60);
@@ -780,6 +810,32 @@ const MTUNE = {
           MTUNE.utils.startRadio(state.songQueue[state.currentSongIndex].id, true); // Start radio without replacing queue
       }
     },
+    crossfade() {
+        const fadeDuration = MTUNE.state.crossfadeDuration * 1000;
+        if (fadeDuration === 0) {
+            this.next();
+            return;
+        }
+
+        const audio = MTUNE.ui.audioPlayer;
+        const originalVolume = audio.volume;
+        let fadeOutInterval = setInterval(() => {
+            if (audio.volume > 0.1) {
+                audio.volume -= 0.1;
+            } else {
+                clearInterval(fadeOutInterval);
+                this.next().then(() => {
+                    // Fade in the new song
+                    const newAudio = MTUNE.ui.audioPlayer;
+                    newAudio.volume = 0;
+                    let fadeInInterval = setInterval(() => {
+                        if (newAudio.volume < originalVolume) newAudio.volume = Math.min(originalVolume, newAudio.volume + 0.1);
+                        else clearInterval(fadeInInterval);
+                    }, fadeDuration / 10);
+                });
+            }
+        }, fadeDuration / 10);
+    },
     playFromHistory(songId) {
         // Set the history as the current queue and play the selected song
         MTUNE.state.songQueue = MTUNE.state.history;
@@ -788,7 +844,7 @@ const MTUNE = {
     },
     updateNowPlayingInQueue() {
         const currentSong = MTUNE.state.songQueue[MTUNE.state.currentSongIndex];
-        MTUNE.ui.queueNowPlaying.innerHTML = currentSong ? MTUNE.render.songCard(currentSong, { inQueue: true }).outerHTML : '<div>Nothing is playing.</div>';
+        MTUNE.ui.queueNowPlaying.innerHTML = currentSong ? MTUNE.render.songCard(currentSong, { inQueue: true, isNowPlaying: true }).outerHTML : '<div>Nothing is playing.</div>';
     },
     addToHistory(song) {
         // Add to history only if it's not the last song added
@@ -855,6 +911,9 @@ const MTUNE = {
         const current = MTUNE.state.navigation.currentSection;
         if (current.includes('-details')) {
             this.showSection(MTUNE.state.navigation.previousSection || 'discover');
+        } else if (['favourites', 'saved-playlists', 'downloads'].includes(current)) {
+            // If in a library sub-section, go back to the main library view
+            this.showSection('library');
         } else {
             this.showSection('discover');
         }
@@ -1852,18 +1911,19 @@ const MTUNE = {
               const palette = colorThief.getPalette(img, 5);
               // --- New Logic to avoid black/white ---
               const isBlack = (c) => c[0] < 30 && c[1] < 30 && c[2] < 30;
-              const isWhite = (c) => c[0] > 225 && c[1] > 225 && c[2] > 225;
+              const isWhite = (c) => c[0] > 230 && c[1] > 230 && c[2] > 230;
+              const getLuminance = (c) => (0.299*c[0] + 0.587*c[1] + 0.114*c[2]);
 
               if (isBlack(dominantColor) || isWhite(dominantColor)) {
                   // Find the first color in the palette that isn't black or white
-                  const alternativeColor = palette.find(c => !isBlack(c) && !isWhite(c));
+                  const alternativeColor = palette.find(c => !isBlack(c) && !isWhite(c) && getLuminance(c) > 30 && getLuminance(c) < 220);
                   if (alternativeColor) {
                       dominantColor = alternativeColor;
                   }
               }
 
               const accentColor = `rgb(${dominantColor.join(',')})`;
-              const darkColor = `rgb(${palette.sort((a, b) => (0.299*a[0] + 0.587*a[1] + 0.114*a[2]) - (0.299*b[0] + 0.587*b[1] + 0.114*b[2]))[0].join(',')})`;
+              const darkColor = `rgb(${palette.sort((a, b) => getLuminance(a) - getLuminance(b))[0].join(',')})`;
 
               if (MTUNE.state.dynamicBackground) {
                 document.body.style.background = `linear-gradient(135deg, ${darkColor} 0%, ${accentColor} 100%)`;
@@ -1872,7 +1932,7 @@ const MTUNE = {
               }
 
               if (MTUNE.state.dynamicButtons) {
-                const dominantLuminance = (0.299*dominantColor[0] + 0.587*dominantColor[1] + 0.114*dominantColor[2]);
+                const dominantLuminance = getLuminance(dominantColor);
                 const iconColor = dominantLuminance > 128 ? 'rgba(0,0,0,0.8)' : 'white';
 
                 // --- New: Calculate complementary color for glow ---
@@ -1999,6 +2059,12 @@ const MTUNE = {
             MTUNE.ui.nowPlayingVolumeSlider.value = volumeValue;
             MTUNE.player.setVolume(volumeValue);
         }
+        const crossfade = localStorage.getItem('musify_crossfade');
+        if (crossfade !== null) {
+            MTUNE.state.crossfadeDuration = parseInt(crossfade, 10);
+            MTUNE.ui.nowPlayingVolumeSlider.value = volumeValue;
+            MTUNE.player.setVolume(volumeValue);
+        }
     },
     savePlaybackState() {
         const state = MTUNE.state;
@@ -2029,6 +2095,7 @@ const MTUNE = {
                     const bestQuality = songDetails.downloadUrl.find(u => u.quality === MTUNE.state.audioQuality) || songDetails.downloadUrl.at(-1);
                     MTUNE.ui.audioPlayer.src = bestQuality.url || bestQuality.link;
                     MTUNE.ui.audioPlayer.currentTime = playbackState.currentTime || 0;
+                    MTUNE.ui.audioPlayer.load(); // Explicitly load the media to be ready for playback
                 } else {
                     MTUNE.player.updateMediaSession(songDetails);
                     // If we can't get a playable link, clear the state to avoid a broken player.
@@ -2130,6 +2197,23 @@ const MTUNE = {
             MTUNE.state.savedPlaylists.unshift(playlistData.data);
             this.saveSavedPlaylists();
             MTUNE.utils.showNotification('Playlist saved to library', 'success');
+        }
+    },
+    toggleSavePlaylist(playlistId) {
+        const isSaved = MTUNE.state.savedPlaylists.some(p => p.id === playlistId);
+        if (isSaved) {
+            // Unsave it
+            MTUNE.state.savedPlaylists = MTUNE.state.savedPlaylists.filter(p => p.id !== playlistId);
+            this.saveSavedPlaylists();
+            this.showNotification('Playlist removed from library.', 'info');
+        } else {
+            // Save it
+            this.savePlaylist(playlistId);
+        }
+        // Update the bookmark icon if it exists
+        const bookmarkBtn = document.querySelector(`.details-header-actions .icon-btn[onclick*="'${playlistId}'"]`);
+        if (bookmarkBtn) {
+            bookmarkBtn.classList.toggle('active', !isSaved);
         }
     },
     showPlaylistModal(songId) {
@@ -2260,6 +2344,58 @@ const MTUNE = {
             MTUNE.utils.showNotification('An error occurred during download.', 'error');
         }
     },
+    setupSleepTimer() {
+        const { sleepTimerBtn, sleepTimerOptions } = MTUNE.ui;
+        const container = sleepTimerBtn.parentElement;
+
+        sleepTimerBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            container.classList.toggle('active');
+        });
+
+        sleepTimerOptions.addEventListener('click', (e) => {
+            e.stopPropagation();
+            if (e.target.tagName === 'BUTTON') {
+                const minutes = parseInt(e.target.dataset.minutes, 10);
+                this.setSleepTimer(minutes);
+                container.classList.remove('active');
+            }
+        });
+
+        document.addEventListener('click', () => {
+            container.classList.remove('active');
+        });
+    },
+    setSleepTimer(minutes) {
+        clearInterval(MTUNE.state.sleepTimerId);
+        const display = document.getElementById('sleepTimerDisplay');
+
+        if (minutes > 0) {
+            MTUNE.state.sleepTimerEndTime = Date.now() + minutes * 60 * 1000;
+            MTUNE.state.sleepTimerId = setInterval(() => {
+                const remaining = MTUNE.state.sleepTimerEndTime - Date.now();
+                if (remaining <= 0) {
+                    clearInterval(MTUNE.state.sleepTimerId);
+                    MTUNE.player.togglePlayPause(); // Pause the player
+                    display.textContent = '';
+                    MTUNE.utils.showNotification('Sleep timer finished.', 'success');
+                } else {
+                    const remainingSeconds = Math.round(remaining / 1000);
+                    const mins = Math.floor(remainingSeconds / 60);
+                    const secs = remainingSeconds % 60;
+                    display.textContent = `${mins}:${secs < 10 ? '0' : ''}${secs}`;
+                }
+            }, 1000);
+            this.showNotification(`Playback will stop in ${minutes} minutes.`, 'success');
+        } else {
+            display.textContent = '';
+            this.showNotification('Sleep timer cancelled.', 'info');
+        }
+    },
+    setCrossfade(duration) {
+        MTUNE.state.crossfadeDuration = parseInt(duration, 10);
+        localStorage.setItem('musify_crossfade', duration);
+    },
     setAudioQuality(quality) {
         MTUNE.state.audioQuality = quality;
         localStorage.setItem('musify_quality', quality);
@@ -2287,6 +2423,13 @@ const MTUNE = {
             MTUNE.utils.showNotification('Listening history cleared.', 'success');
             // If the history tab is active, re-render it to show it's empty
             if (MTUNE.state.navigation.currentSection === 'history') MTUNE.navigation.loadHistory();
+        }
+    },
+    saveUserPlaylists() {
+        try {
+            localStorage.setItem('musify_userPlaylists', JSON.stringify(MTUNE.state.userPlaylists));
+        } catch (e) {
+            console.error("Could not save user playlists to localStorage", e);
         }
     },
     showNotification(message, type = 'info') { // 'info', 'success', 'error'
@@ -2323,6 +2466,12 @@ const MTUNE = {
             MTUNE.utils.showNotification('Favourites cleared.', 'success');
             if (MTUNE.state.navigation.currentSection === 'favourites') MTUNE.navigation.loadFavourites();
         }
+    },
+    saveSavedPlaylists() {
+        localStorage.setItem('musify_saved_playlists', JSON.stringify(MTUNE.state.savedPlaylists));
+    },
+    isPlaylistSaved(playlistId) {
+        return MTUNE.state.savedPlaylists.some(p => p.id === playlistId);
     },
     clearQueue() {
         if (confirm('Are you sure you want to clear the queue?')) {
