@@ -251,7 +251,7 @@
 
     <footer class="bottom-player">
       <div class="player-song-info" onclick="Musify.navigation.toggleNowPlayingView(true)">
-          <img id="currentSongImg" alt="Album Art" src="default_cover.jpg"/>
+          <img id="currentSongImg" alt="Album Art" src="/default_cover.jpg"/>
           <div class="player-text">
             <div id="currentSongTitle"><span>No song playing</span></div>
             <div id="currentSongArtist"></div>
@@ -296,12 +296,15 @@
       
       
       <div class="now-playing-art">
-        <img id="nowPlayingImg" src="default_cover.jpg" alt="Album Art"/>
+        <img id="nowPlayingImg" src="/default_cover.jpg" alt="Album Art"/>
       </div>
 
       <div class="now-playing-info">
-        <h2 id="nowPlayingTitle">No song playing</h2>
-        <p id="nowPlayingArtist">Select a song to start</p>
+        <div class="now-playing-info-text">
+          <h2 id="nowPlayingTitle">No song playing</h2>
+          <p id="nowPlayingArtist">Select a song to start</p>
+        </div>
+        <button id="nowPlayingLikeBtn" class="player-like-btn" onclick="likeCurrentSong()" title="Add to Favourites"><i class="far fa-heart"></i></button>
       </div>
 
       <div class="now-playing-progress">

@@ -115,6 +115,7 @@ const Musify = {
       nowPlayingShuffleBtn: document.getElementById('nowPlayingShuffleBtn'),
       nowPlayingRepeatBtn: document.getElementById('nowPlayingRepeatBtn'),
       nowPlayingRepeatIcon: document.getElementById('nowPlayingRepeatIcon'),
+      nowPlayingLikeBtn: document.getElementById('nowPlayingLikeBtn'),
       nowPlayingVolumeSlider: document.getElementById('nowPlayingVolumeSlider'),
       lyricsContainer: document.getElementById('lyricsContainer'),
       lyricsContent: document.getElementById('lyricsContent'),
@@ -204,7 +205,7 @@ const Musify = {
       return div.innerHTML;
     },
     _getImageUrl(imageArray) {
-      return imageArray?.[2]?.url || imageArray?.[1]?.url || imageArray?.[0]?.url || 'default_cover.jpg';
+      return imageArray?.[2]?.url || imageArray?.[1]?.url || imageArray?.[0]?.url || '/default_cover.jpg';
     }, // Added missing comma
     discoverCard(item) {
         const div = document.createElement('div');
@@ -230,7 +231,7 @@ const Musify = {
 
         div.innerHTML = `
             <div class="discover-card-art" onclick="${cardClickAction}">
-                <img src="${this._getImageUrl(item.image)}" alt="${this._decode(item.name || item.title)}" loading="lazy" onerror="this.src='default_cover.jpg'"/>
+                <img src="${this._getImageUrl(item.image)}" alt="${this._decode(item.name || item.title)}" loading="lazy" onerror="this.src='/default_cover.jpg'"/>
                 <button class="play-btn" onclick="${playButtonClickAction}"><i class="fas fa-play"></i></button>
             </div>
             <strong><span>${this._decode(item.name || item.title)}</span></strong>
@@ -248,7 +249,7 @@ const Musify = {
       const img = document.createElement('img');
       img.src = this._getImageUrl(song.image);
       img.alt = this._decode(song.title);
-      img.onerror = () => { img.src = 'default_cover.jpg'; };
+      img.onerror = () => { img.src = '/default_cover.jpg'; };
 
       const infoDiv = document.createElement('div');
 	  const strong = document.createElement('strong');
@@ -270,7 +271,7 @@ const Musify = {
       durationSpan.className = 'song-duration';
 	  durationSpan.textContent = Musify.player.formatTime(song.duration || 0);
       const contextBtn = inQueue 
-        ? null : null; // Remove button is now handled by gesture
+        ? this._createButton('options-btn remove-from-queue-btn', `Musify.utils.removeFromQueue(event, '${song.id}')`, 'Remove from queue', 'fas fa-times') : null;
       const playBtn = this._createButton('play-btn', `Musify.player.playSongFromCard(event, '${song.id}')`, `Play ${this._decode(song.name || song.title)}`, 'fas fa-play');
       img.insertAdjacentElement('afterend', playBtn);
       div.append(img, infoDiv, durationSpan);
@@ -285,7 +286,7 @@ const Musify = {
       const isNewUserPlaylist = pl.id.startsWith('user_') && (!pl.songs || pl.songs.length === 0);
       const imageContent = isNewUserPlaylist
         ? `<div class="playlist-placeholder"><i class="fas fa-music"></i></div>`
-        : `<img src="${this._getImageUrl(pl.image)}" alt="${this._decode(pl.name || pl.title)}" onerror="this.src='default_cover.jpg'" loading="lazy"/>`;
+        : `<img src="${this._getImageUrl(pl.image)}" alt="${this._decode(pl.name || pl.title)}" onerror="this.src='/default_cover.jpg'" loading="lazy"/>`;
 
       div.innerHTML = ` 
         ${imageContent}
@@ -305,7 +306,7 @@ const Musify = {
       const div = document.createElement('div');
       div.className = 'album';
       div.innerHTML = `
-        <img src="${this._getImageUrl(album.image)}" alt="${this._decode(album.name || album.title)}" onerror="this.src='default_cover.jpg'" loading="lazy"/>
+        <img src="${this._getImageUrl(album.image)}" alt="${this._decode(album.name || album.title)}" onerror="this.src='/default_cover.jpg'" loading="lazy"/>
         <div><strong><span>${this._decode(album.name || album.title)}</span></strong></div>
         <small>${this._decode(album.primaryArtists || 'Various Artists')}</small>
         <button onclick="Musify.navigation.showAlbum('${album.id}')" title="View Album"><i class="fas fa-info-circle"></i></button>
@@ -316,7 +317,7 @@ const Musify = {
       const div = document.createElement('div');
       div.className = 'artist';
       div.innerHTML = `
-        <img src="${this._getImageUrl(artist.image)}" alt="${this._decode(artist.title)}" onerror="this.src='default_artist.jpg'" loading="lazy"/>
+        <img src="${this._getImageUrl(artist.image)}" alt="${this._decode(artist.title)}" onerror="this.src='/default_artist.jpg'" loading="lazy"/>
         <div><strong><span>${this._decode(artist.name || artist.title)}</span></strong><small>${this._decode(artist.description || artist.role || 'Artist')}</small></div>
         <button onclick="Musify.navigation.showArtist(event, '${artist.id}')" title="View artist"><i class="fas fa-info-circle"></i></button>
       `;
@@ -585,6 +586,7 @@ const Musify = {
       Musify.ui.currentSongTitle.innerHTML = `<span>${title}</span>`;
       Musify.ui.currentSongArtist.textContent = Musify.render._decode(song.primaryArtists || song.artists?.primary?.map(a => a.name).join(', ') || 'Unknown Artist');
       Musify.ui.currentSongImg.src = Musify.render._getImageUrl(song.image);
+      Musify.ui.nowPlayingLikeBtn.classList.toggle('active', Musify.utils.isFavourited(song.id));
       Musify.ui.likeBtn.classList.toggle('active', Musify.utils.isFavourited(song.id));
       Musify.ui.playPauseIcon.className = Musify.state.isPlaying ? 'fas fa-pause' : 'fas fa-play';
       Musify.utils.updatePlayerTheme(Musify.render._getImageUrl(song.image));
@@ -970,7 +972,7 @@ const Musify = {
           if (s.type === 'album') onclickAction = `Musify.navigation.showAlbum('${s.id}')`;
           if (s.type === 'artist') onclickAction = `Musify.navigation.showArtist(event, '${s.id}')`;
 
-          return `<div class="suggestion-item" onclick="${onclickAction}"><img src="${imageUrl}" loading="lazy" onerror="this.src='default_cover.jpg'"/><div><strong>${title}</strong><small>${subtitle}</small></div></div>`;
+          return `<div class="suggestion-item" onclick="${onclickAction}"><img src="${imageUrl}" loading="lazy" onerror="this.src='/default_cover.jpg'"/><div><strong>${title}</strong><small>${subtitle}</small></div></div>`;
       }).join('');
 
       container.innerHTML = uniqueSuggestions.map(s => {
@@ -984,7 +986,7 @@ const Musify = {
           if (s.type === 'artist') onclickAction = `Musify.navigation.showArtist(event, '${s.id}')`;
 
           const imageUrl = Musify.render._getImageUrl(s.image);
-          return `<div class="suggestion-item" onclick="${onclickAction}"><img src="${imageUrl}" loading="lazy" onerror="this.src='default_cover.jpg'"/><div><strong>${Musify.render._decode(s.title)}</strong><small>${Musify.render._decode(s.subtitle || s.description || '')}</small></div></div>`;
+          return `<div class="suggestion-item" onclick="${onclickAction}"><img src="${imageUrl}" loading="lazy" onerror="this.src='/default_cover.jpg'"/><div><strong>${Musify.render._decode(s.title)}</strong><small>${Musify.render._decode(s.subtitle || s.description || '')}</small></div></div>`;
       }).join('');
       container.classList.toggle('active', uniqueSuggestions.length > 0);
     },
@@ -1573,6 +1575,7 @@ const Musify = {
         
         // Update UI if visible
         if (Musify.state.navigation.currentSection === 'favourites') Musify.navigation.loadFavourites();
+        if (Musify.state.currentSongIndex > -1 && Musify.state.songQueue[Musify.state.currentSongIndex].id === songId) Musify.ui.nowPlayingLikeBtn.classList.toggle('active');
         if (Musify.state.currentSongIndex > -1 && Musify.state.songQueue[Musify.state.currentSongIndex].id === songId) Musify.ui.likeBtn.classList.toggle('active');
     },
     updatePlayerTheme(imageUrl) {
