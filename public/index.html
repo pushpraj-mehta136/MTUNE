@@ -15,7 +15,9 @@
   <div id="notification-container"></div>
   <div id="app" class="app-container">
     <aside class="sidebar">
-      <div class="sidebar-header">MTUNE</div>
+      <div class="sidebar-header">
+        <img src="/logo.png" alt="MTUNE Logo" class="app-logo">
+      </div>
       <nav id="mainNav" class="nav-list">
         <button class="nav-btn active" onclick="showSection('discover')" data-section="discover"><i class="fas fa-home"></i> Discover</button>
         <button class="nav-btn" onclick="showSection('search')" data-section="search"><i class="fas fa-search"></i> Search</button>
@@ -35,7 +37,10 @@
       </header>
 
       <section id="discover" class="content-section active">
-        <h1>Discover</h1>
+        <div class="discover-header">
+          <img src="/logo.png" alt="MTUNE Logo" class="app-logo-mobile">
+          <h1>Discover</h1>
+        </div>
         <section>
           <h2>Recommended Songs</h2>
           <div class="grid-container scrollable-row" id="recommendedSongs">

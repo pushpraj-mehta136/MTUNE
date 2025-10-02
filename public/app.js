@@ -307,15 +307,8 @@ const Musify = {
       div.innerHTML = ` 
         ${imageContent}
         <div><strong><span>${this._decode(pl.name || pl.title)}</span></strong></div>
-        <button onclick="${
-          pl.id.startsWith('user_')
-            ? `Musify.utils.showPlaylistContextMenu(event, '${pl.id}')`
-            : `Musify.navigation.showPlaylist(event, '${pl.id}', true)`
-        }" title="${
-          pl.id.startsWith('user_') ? 'More options' : 'View playlist'
-        }"><i class="fas fa-ellipsis-h"></i></button>
       `;
-      if (!pl.id.startsWith('user_')) div.onclick = (e) => Musify.navigation.showPlaylist(e, pl.id, false);
+      div.onclick = (e) => Musify.navigation.showPlaylist(e, pl.id, false);
       return div;
     },
     albumCard(album) {
@@ -605,7 +598,7 @@ const Musify = {
     },
     updateInfo(song) {
       const title = Musify.render._decode(song.name || song.title || 'Unknown Title');
-      Musify.ui.currentSongTitle.innerHTML = `<span>${title}</span>`;
+      Musify.ui.currentSongTitle.innerHTML = `<strong><span>${title}</span></strong>`;
       Musify.ui.currentSongArtist.textContent = Musify.render._decode(song.primaryArtists || song.artists?.primary?.map(a => a.name).join(', ') || 'Unknown Artist');
       Musify.ui.currentSongImg.src = Musify.render._getImageUrl(song.image);
       Musify.ui.nowPlayingLikeBtn.classList.toggle('active', Musify.utils.isFavourited(song.id));
@@ -1370,6 +1363,15 @@ const Musify = {
             }
         });
 
+        mainContent.addEventListener('contextmenu', e => {
+            const playlistCard = e.target.closest('.playlist');
+            if (playlistCard) {
+                e.preventDefault();
+                const playlistId = playlistCard.querySelector('button')?.onclick.toString().match(/'(.*?)'/)[1];
+                this.showPlaylistContextMenu(e, playlistId);
+            }
+        });
+
         // Add a separate click listener for the queue container
         const queueContainer = Musify.ui.queueContainer;
 
@@ -1377,11 +1379,16 @@ const Musify = {
         mainContent.addEventListener('touchstart', e => {
             if (window.innerWidth > 768) return;
             const songCard = e.target.closest('.song');
+            const playlistCard = e.target.closest('.playlist');
             if (songCard) {
                 longPressTimer = setTimeout(() => {
                     const songId = songCard.dataset.songId;
                     this.showSongBottomSheet(songId);
                 }, 500); // 500ms for long press
+            }
+            if (playlistCard) {
+                const playlistId = playlistCard.querySelector('button')?.onclick.toString().match(/'(.*?)'/)[1];
+                this.showPlaylistContextMenu(e, playlistId, { isMobile: true });
             }
         });
 
@@ -1433,9 +1440,9 @@ const Musify = {
             swipedItem.classList.remove('swiping');
 
             // If swipe is more than 1/3 of the card width, remove it
-            if (deltaX < -swipedItem.clientWidth / 3) {
+            if (deltaX < -50) { // A small swipe is enough to trigger options
                 const songId = swipedItem.dataset.songId;
-                this.removeFromQueue(e, songId, swipedItem);
+                this.showSongBottomSheet(songId);
             } else {
                 // Reset position if swipe was not enough
                 swipedItem.style.transform = 'translateX(0)';
@@ -1523,14 +1530,14 @@ const Musify = {
         }
     },
     handleMarquee(event) {
-        const title = event.target.closest('.song, .playlist, .album, .artist')?.querySelector('strong');
-        if (!title) return;
-        const span = title.querySelector('span');
+        const container = event.target.closest('.song strong, .playlist strong, .album strong, .artist strong, #currentSongTitle strong, #nowPlayingTitle');
+        if (!container) return;
+        const span = container.querySelector('span') || container; // Handle h2 directly or span inside strong
         if (!span) return;
 
-        if (event.type === 'mouseover' && title.scrollWidth > title.clientWidth) {
+        if (event.type === 'mouseover' && container.scrollWidth > container.clientWidth) {
             // Calculate duration based on text length for a consistent speed
-            const duration = title.scrollWidth / 40; // Adjust 40 to control speed
+            const duration = container.scrollWidth / 40; // Adjust 40 to control speed
             span.style.animation = `marquee ${duration}s linear 1s infinite`;
             span.classList.add('marquee');
         } else if (event.type === 'mouseout') {
@@ -1613,29 +1620,36 @@ const Musify = {
     hideBottomSheet() {
         document.getElementById('bottomSheet').classList.remove('active');
     },
-    showPlaylistContextMenu(event, playlistId) {
+    showPlaylistContextMenu(event, playlistId, options = {}) {
         event.stopPropagation();
         this.removeContextMenu();
 
         const playlist = Musify.state.userPlaylists.find(p => p.id === playlistId);
         const isApiPlaylist = !playlistId.startsWith('user_');
 
-        if (!playlist && !isApiPlaylist) {
-            Musify.navigation.showPlaylist(playlistId);
+        const saveOption = isApiPlaylist ? `<li onclick="Musify.utils.savePlaylist('${playlistId}')"><i class="fas fa-bookmark"></i> Save to Library</li>` : '';
+        const deleteOption = playlist ? `<li onclick="Musify.utils.deletePlaylist('${playlistId}')"><i class="fas fa-trash"></i> Delete Playlist</li>` : '';
+        const renameOption = playlist ? `<li onclick="Musify.utils.renamePlaylist('${playlistId}')"><i class="fas fa-pencil-alt"></i> Rename Playlist</li>` : '';
+
+        const menuItems = `
+            <ul>
+                <li onclick="Musify.navigation.showPlaylist(event, '${playlistId}')"><i class="fas fa-eye"></i> View Playlist</li>
+                ${saveOption ? `<li class="separator"></li>${saveOption}` : ''}
+                ${renameOption ? `<li class="separator"></li>${renameOption}` : ''}
+                ${deleteOption ? `<li class="separator"></li>${deleteOption}` : ''}
+            </ul>
+        `;
+
+        if (options.isMobile) {
+            const sheetContent = document.querySelector('#bottomSheet .bottom-sheet-content');
+            sheetContent.innerHTML = menuItems.replace(/Musify.utils.(.*?)\((.*?)\)/g, "Musify.utils.$1($2); Musify.utils.hideBottomSheet()");
+            document.getElementById('bottomSheet').classList.add('active');
             return;
         }
 
         const menu = document.createElement('div');
         menu.className = 'context-menu';
-        const saveOption = isApiPlaylist ? `<li onclick="Musify.utils.savePlaylist('${playlistId}')"><i class="fas fa-bookmark"></i> Save to Library</li>` : '';
-        const deleteOption = playlist ? `<li onclick="Musify.utils.deletePlaylist('${playlistId}')"><i class="fas fa-trash"></i> Delete Playlist</li>` : '';
-        menu.innerHTML = `
-            <ul>
-                <li onclick="Musify.navigation.showPlaylist(event, '${playlistId}')"><i class="fas fa-eye"></i> View Playlist</li>
-                ${saveOption ? `<li class="separator"></li>${saveOption}` : ''}
-                ${deleteOption ? `<li class="separator"></li>${deleteOption}` : ''}
-            </ul>
-        `;
+        menu.innerHTML = menuItems;
         document.body.appendChild(menu);
         menu.style.top = `${event.pageY}px`;
         menu.style.left = `${event.pageX}px`;
@@ -1643,11 +1657,22 @@ const Musify = {
         document.addEventListener('click', this.removeContextMenu, { once: true });
     },
     deletePlaylist(playlistId) {
+        this.removeContextMenu();
         const playlist = Musify.state.userPlaylists.find(p => p.id === playlistId);
         if (!playlist) return;
 
         if (confirm(`Delete "${playlist.name}"? This cannot be undone.`)) {
             Musify.state.userPlaylists = Musify.state.userPlaylists.filter(p => p.id !== playlistId);
+            this.saveUserPlaylists();
+            if (Musify.state.navigation.currentSection === 'library') Musify.navigation.loadLibrary();
+        }
+    },
+    renamePlaylist(playlistId) {
+        this.removeContextMenu();
+        const playlist = Musify.state.userPlaylists.find(p => p.id === playlistId);
+        const newName = prompt("Enter new playlist name:", playlist.name);
+        if (newName && newName.trim() !== "") {
+            playlist.name = newName.trim();
             this.saveUserPlaylists();
             if (Musify.state.navigation.currentSection === 'library') Musify.navigation.loadLibrary();
         }
