@@ -183,6 +183,8 @@ const MTUNE = {
     // Add mobile-specific gesture listeners
     this.utils.addMobileGestures();
     this.utils.addNowPlayingGestures();
+    // Add context menu listeners
+    this.utils.addContextMenuHandlers();
 
     // Use event delegation for marquee effect and infinite scroll
     this.ui.mainContent.addEventListener('mouseover', this.utils.handleMarquee);
@@ -190,7 +192,6 @@ const MTUNE = {
     this.ui.mainContent.addEventListener('scroll', this.utils.handleInfiniteScroll);
     // Add ripple effect to all buttons
     this.utils.addQueueDragHandlers();
-    this.utils.addSongCardInteractionHandlers();
     this.utils.addQueueInteractionHandlers();
     document.addEventListener('click', this.utils.applyRippleEffect);
 
@@ -231,6 +232,8 @@ const MTUNE = {
     discoverCard(item) {
         const div = document.createElement('div');
         div.className = 'discover-card';
+        div.dataset.id = item.id;
+        
         // Determine type. Albums and Playlists can be ambiguous.
         let type = item.type;
         if (!type) {
@@ -239,6 +242,8 @@ const MTUNE = {
             else if (item.role === 'artist') type = 'artist';
             else type = 'song'; // fallback
         }
+        div.dataset.type = type;
+
 
         let cardClickAction = '';
         let playButtonClickAction = `MTUNE.player.playFromCardContext(event, '${item.id}', '${type}')`;
@@ -268,6 +273,8 @@ const MTUNE = {
       const div = document.createElement('div');
       div.className = 'song';
 
+      div.dataset.type = 'song';
+      div.dataset.id = song.id;
       div.dataset.songId = song.id;
       const img = document.createElement('img');
       img.src = this._getImageUrl(song.image);
@@ -304,6 +311,8 @@ const MTUNE = {
     playlistCard(pl) {
       const div = document.createElement('div');
       div.className = 'playlist';
+      div.dataset.id = pl.id;
+      div.dataset.type = 'playlist';
 
       // If it's a user playlist with no songs, show a placeholder icon instead of an image.
       const isNewUserPlaylist = pl.id.startsWith('user_') && (!pl.songs || pl.songs.length === 0);
@@ -321,6 +330,8 @@ const MTUNE = {
     albumCard(album) {
       const div = document.createElement('div');
       div.className = 'album';
+      div.dataset.id = album.id;
+      div.dataset.type = 'album';
       div.innerHTML = `
         <img src="${this._getImageUrl(album.image)}" alt="${this._decode(album.name || album.title)}" onerror="this.src='/default_cover.jpg'" loading="lazy"/>
         <div><strong><span>${this._decode(album.name || album.title)}</span></strong></div>
@@ -332,6 +343,8 @@ const MTUNE = {
     timelineCard(artist) {
       const div = document.createElement('div');
       div.className = 'artist';
+      div.dataset.id = artist.id;
+      div.dataset.type = 'artist';
       div.innerHTML = `
         <img src="${this._getImageUrl(artist.image)}" alt="${this._decode(artist.title)}" onerror="this.src='/default_artist.jpg'" loading="lazy"/>
         <div>
@@ -722,11 +735,11 @@ const MTUNE = {
       const { audioPlayer, progressBar, mobileProgressBar, currentTime, totalDuration, nowPlayingProgressBar, nowPlayingCurrentTime, nowPlayingTotalDuration } = MTUNE.ui;
       if (!audioPlayer.duration) return;
       const progress = (audioPlayer.currentTime / audioPlayer.duration) * 100;
-      const safeProgress = isNaN(progress) ? 0 : progress;
+      const safeProgress = isNaN(progress) || !isFinite(progress) ? 0 : progress;
       progressBar.value = safeProgress;
       nowPlayingProgressBar.value = safeProgress;
       if (mobileProgressBar) mobileProgressBar.style.width = `${safeProgress}%`;
-      currentTime.textContent = this.formatTime(audioPlayer.currentTime);
+      currentTime.textContent = this.formatTime(audioPlayer.currentTime || 0);
       totalDuration.textContent = this.formatTime(audioPlayer.duration);
       nowPlayingCurrentTime.textContent = this.formatTime(audioPlayer.currentTime);
       nowPlayingTotalDuration.textContent = this.formatTime(audioPlayer.duration);
@@ -750,15 +763,17 @@ const MTUNE = {
         return `${minutes}:${secs < 10 ? '0' : ''}${secs}`;
     },
     handleSongEnd() {
+      const state = MTUNE.state;
+      // Remove the played song from the queue view
+      const playedSongElement = document.querySelector(`#queueList .song[data-song-id="${state.songQueue[state.currentSongIndex]?.id}"]`);
+      if (playedSongElement) playedSongElement.remove();
+
       if (MTUNE.state.repeatMode === 'one') {
         MTUNE.ui.audioPlayer.currentTime = 0;
         MTUNE.ui.audioPlayer.play();
-      } else {
-        this.next();
-      }
-
-      // Check for endless queue
-      const state = MTUNE.state;
+      } else if (state.currentSongIndex === state.songQueue.length - 1 && state.repeatMode === 'off' && !state.endlessQueue) {
+          // End of queue, no repeat, no endless queue
+      } else this.next();
       if (state.endlessQueue && state.currentSongIndex === state.songQueue.length - 1) {
           MTUNE.utils.startRadio(state.songQueue[state.currentSongIndex].id, true); // Start radio without replacing queue
       }
@@ -768,6 +783,10 @@ const MTUNE = {
         MTUNE.state.songQueue = MTUNE.state.history;
         const index = MTUNE.state.songQueue.findIndex(s => s.id === songId);
         if (index !== -1) this.playFromQueue(songId);
+    },
+    updateNowPlayingInQueue() {
+        const currentSong = MTUNE.state.songQueue[MTUNE.state.currentSongIndex];
+        MTUNE.ui.queueNowPlaying.innerHTML = currentSong ? MTUNE.render.songCard(currentSong, { inQueue: true }).outerHTML : '<div>Nothing is playing.</div>';
     },
     addToHistory(song) {
         // Add to history only if it's not the last song added
@@ -853,17 +872,10 @@ const MTUNE = {
         const { queueContainer, queueList, queueNowPlaying } = MTUNE.ui;
         queueContainer.classList.toggle('active', show);
         if (show) {
-            const currentSongId = MTUNE.state.songQueue[MTUNE.state.currentSongIndex]?.id;
-            const currentSong = MTUNE.state.songQueue.find(s => s.id === currentSongId);
-            if (currentSong) {
-                queueNowPlaying.innerHTML = '';
-                queueNowPlaying.appendChild(MTUNE.render.songCard(currentSong, { inQueue: true }));
-            }
-            const upcomingSongs = MTUNE.state.songQueue.slice(MTUNE.state.currentSongIndex + 1);
+            this.updateNowPlayingInQueue();
+            const upcomingSongs = MTUNE.state.songQueue.slice(MTUNE.state.currentSongIndex + 1); // Show only upcoming
             MTUNE.render.populate(queueList, upcomingSongs, (s) => MTUNE.render.songCard(s, { inQueue: true }), 'The queue is empty.', 'Could not load queue.');
-            const currentQueueItem = queueList.querySelector(`.song[data-song-id="${currentSongId}"]`);
-            if (currentQueueItem) currentQueueItem.classList.add('is-playing');
-        }
+         }
     },
 
     async loadDiscover() {
@@ -1298,6 +1310,36 @@ const MTUNE = {
             storageKey: 'musify_notifications',
         },
     },
+    addContextMenuHandlers() {
+        const mainContent = MTUNE.ui.mainContent;
+
+        mainContent.addEventListener('contextmenu', e => {
+            const card = e.target.closest('.song, .discover-card, .playlist, .album, .artist');
+            if (card) {
+                e.preventDefault();
+                const id = card.dataset.id;
+                const type = card.dataset.type;
+
+                if (!id || !type) return;
+
+                switch (type) {
+                    case 'song':
+                        this.showSongBottomSheet(id);
+                        break;
+                    case 'playlist':
+                        this.showPlaylistContextMenu(e, id);
+                        break;
+                    case 'album':
+                        this.showAlbumContextMenu(e, id);
+                        break;
+                    case 'artist':
+                        this.showArtistContextMenu(e, id);
+                        break;
+                }
+            }
+        });
+
+    },
     handleSettingToggle(settingKey, isEnabled) {
         const config = this.settingsConfig[settingKey];
         MTUNE.state[config.stateKey] = isEnabled;
@@ -1370,83 +1412,6 @@ const MTUNE = {
             
             button.appendChild(circle);
         }
-    },
-    addSongCardInteractionHandlers() {
-        const mainContent = MTUNE.ui.mainContent;
-        let longPressTimer;
-
-        mainContent.addEventListener('mousedown', e => {
-            const songCard = e.target.closest('.song');
-            if (songCard) {
-                e.preventDefault(); // Prevent default browser actions like text selection
-            }
-        });
-
-        mainContent.addEventListener('click', e => {
-            const songCard = e.target.closest('.song');
-            if (!songCard) return;
-            
-            const songId = songCard.dataset.songId;
-            if (e.target.closest('.remove-from-queue-btn')) return; // Let the remove button do its job
-
-            if (e.target.closest('img')) {
-                MTUNE.player.playSongFromCard(e, songId);
-            }
-        });
-
-        mainContent.addEventListener('contextmenu', e => {
-            const songCard = e.target.closest('.song');
-            if (songCard) { // Apply to all devices
-                e.preventDefault();
-                const songId = songCard.dataset.songId;
-                this.showSongBottomSheet(songId); // Use bottom sheet for desktop too
-            }
-        });
-
-        mainContent.addEventListener('contextmenu', e => {
-            const playlistCard = e.target.closest('.playlist');
-            if (playlistCard) {
-                e.preventDefault();
-                const playlistId = playlistCard.querySelector('button')?.onclick.toString().match(/'(.*?)'/)[1];
-                this.showPlaylistContextMenu(e, playlistId);
-            }
-        });
-
-        // Add a separate click listener for the queue container
-        const queueContainer = MTUNE.ui.queueContainer;
-
-        // Long press for mobile
-        mainContent.addEventListener('touchstart', e => {
-            if (window.innerWidth > 768) return;
-            const songCard = e.target.closest('.song');
-            const playlistCard = e.target.closest('.playlist');
-            if (songCard) {
-                longPressTimer = setTimeout(() => {
-                    const songId = songCard.dataset.songId;
-                    this.showSongBottomSheet(songId);
-                }, 500); // 500ms for long press
-            }
-            if (playlistCard) {
-                const playlistId = playlistCard.querySelector('button')?.onclick.toString().match(/'(.*?)'/)[1];
-                this.showPlaylistContextMenu(e, playlistId, { isMobile: true });
-            }
-        });
-
-        const clearLongPress = () => clearTimeout(longPressTimer);
-        mainContent.addEventListener('touchend', clearLongPress);
-        mainContent.addEventListener('touchcancel', clearLongPress);
-        mainContent.addEventListener('touchmove', clearLongPress);
-
-
-        queueContainer.addEventListener('click', e => {
-            const songCard = e.target.closest('.song');
-            if (!songCard) return;
-
-            const songId = songCard.dataset.songId;
-            if (e.target.closest('.play-btn, img')) {
-                MTUNE.player.playSongFromCard(e, songId);
-            }
-        });
     },
     addQueueInteractionHandlers() {
         const queueList = MTUNE.ui.queueList;
@@ -1598,30 +1563,31 @@ const MTUNE = {
         const isFavourited = MTUNE.utils.isFavourited(songId);
     
         const queueOptions = `
-            <li onclick="MTUNE.utils.playNext('${songId}')"><i class="fas fa-level-up-alt"></i> Play Next</li>
-            <li onclick="MTUNE.utils.addToQueue('${songId}')"><i class="fas fa-plus-square"></i> Add to Queue</li>
+            <li onclick="MTUNE.utils.playNext('${songId}'); MTUNE.utils.removeContextMenu();"><i class="fas fa-level-up-alt"></i> Play Next</li>
+            <li onclick="MTUNE.utils.addToQueue('${songId}'); MTUNE.utils.removeContextMenu();"><i class="fas fa-plus-square"></i> Add to Queue</li>
         `;
     
         const menu = document.createElement('div');
         menu.className = 'context-menu';
         menu.innerHTML = `
             <ul>
-                <li onclick="MTUNE.utils.startRadio('${songId}')"><i class="fas fa-broadcast-tower"></i> Start Radio</li>
+                <li onclick="MTUNE.utils.startRadio('${songId}'); MTUNE.utils.removeContextMenu();"><i class="fas fa-broadcast-tower"></i> Start Radio</li>
                 ${queueOptions}
                 <li class="separator"></li>
-                <li onclick="MTUNE.utils.toggleFavourite('${songId}')">
+                <li onclick="MTUNE.utils.toggleFavourite('${songId}'); MTUNE.utils.removeContextMenu();">
                     <i class="fas fa-heart" style="color: ${isFavourited ? 'var(--accent)' : 'inherit'}"></i>
                     ${isFavourited ? 'Remove from Favourites' : 'Add to Favourites'}
                 </li>
-                <li onclick="MTUNE.utils.downloadSong('${songId}')"><i class="fas fa-download"></i> Download</li>
+                <li onclick="MTUNE.utils.downloadSong('${songId}'); MTUNE.utils.removeContextMenu();"><i class="fas fa-download"></i> Download</li>
                 <li class="separator"></li>
-                <li onclick="MTUNE.utils.showPlaylistModal('${songId}')"><i class="fas fa-plus"></i> Add to Playlist...</li>
+                <li onclick="MTUNE.utils.showPlaylistModal('${songId}'); MTUNE.utils.removeContextMenu();"><i class="fas fa-plus"></i> Add to Playlist...</li>
             </ul>
         `;
     
         document.body.appendChild(menu);
         menu.style.top = `${event.pageY}px`;
         menu.style.left = `${event.pageX}px`;
+        this.positionContextMenu(event, menu);
         // Use a timeout to allow the element to be in the DOM before adding the class
         setTimeout(() => menu.classList.add('active'), 10);
     
@@ -1673,10 +1639,10 @@ const MTUNE = {
 
         const menuItems = `
             <ul>
-                <li onclick="MTUNE.navigation.showPlaylist(event, '${playlistId}')"><i class="fas fa-eye"></i> View Playlist</li>
+                <li onclick="MTUNE.navigation.showPlaylist(event, '${playlistId}'); MTUNE.utils.removeContextMenu();"><i class="fas fa-eye"></i> View Playlist</li>
                 ${saveOption ? `<li class="separator"></li>${saveOption}` : ''}
-                ${renameOption ? `<li class="separator"></li>${renameOption}` : ''}
-                ${deleteOption ? `<li class="separator"></li>${deleteOption}` : ''}
+                ${renameOption ? `<li class="separator"></li><li onclick="MTUNE.utils.renamePlaylist('${playlistId}')"><i class="fas fa-pencil-alt"></i> Rename Playlist</li>` : ''}
+                ${deleteOption ? `<li class="separator"></li><li onclick="MTUNE.utils.deletePlaylist('${playlistId}')"><i class="fas fa-trash"></i> Delete Playlist</li>` : ''}
             </ul>
         `;
 
@@ -1693,11 +1659,11 @@ const MTUNE = {
         document.body.appendChild(menu);
         menu.style.top = `${event.pageY}px`;
         menu.style.left = `${event.pageX}px`;
+        this.positionContextMenu(event, menu);
 
         document.addEventListener('click', this.removeContextMenu, { once: true });
     },
     deletePlaylist(playlistId) {
-        this.removeContextMenu();
         const playlist = MTUNE.state.userPlaylists.find(p => p.id === playlistId);
         if (!playlist) return;
 
@@ -1708,7 +1674,6 @@ const MTUNE = {
         }
     },
     renamePlaylist(playlistId) {
-        this.removeContextMenu();
         const playlist = MTUNE.state.userPlaylists.find(p => p.id === playlistId);
         const newName = prompt("Enter new playlist name:", playlist.name);
         if (newName && newName.trim() !== "") {
@@ -1716,6 +1681,67 @@ const MTUNE = {
             this.saveUserPlaylists();
             if (MTUNE.state.navigation.currentSection === 'library') MTUNE.navigation.loadLibrary();
         }
+    },
+    showAlbumContextMenu(event, albumId) {
+        event.stopPropagation();
+        this.removeContextMenu();
+
+        const menu = document.createElement('div');
+        menu.className = 'context-menu';
+        menu.innerHTML = `
+            <ul>
+                <li onclick="MTUNE.player.playFromCardContext(event, '${albumId}', 'album'); MTUNE.utils.removeContextMenu();"><i class="fas fa-play"></i> Play Album</li>
+                <li onclick="MTUNE.utils.addAlbumToQueue('${albumId}'); MTUNE.utils.removeContextMenu();"><i class="fas fa-plus-square"></i> Add to Queue</li>
+                <li class="separator"></li>
+                <li onclick="MTUNE.utils.addAlbumToPlaylist('${albumId}'); MTUNE.utils.removeContextMenu();"><i class="fas fa-plus"></i> Add to Playlist...</li>
+            </ul>
+        `;
+
+        document.body.appendChild(menu);
+        this.positionContextMenu(event, menu);
+        setTimeout(() => menu.classList.add('active'), 10);
+        document.addEventListener('click', this.removeContextMenu, { once: true });
+    },
+    showArtistContextMenu(event, artistId) {
+        event.stopPropagation();
+        this.removeContextMenu();
+
+        const menu = document.createElement('div');
+        menu.className = 'context-menu';
+        menu.innerHTML = `
+            <ul>
+                <li onclick="MTUNE.player.playFromCardContext(event, '${artistId}', 'artist'); MTUNE.utils.removeContextMenu();"><i class="fas fa-play"></i> Play Top Songs</li>
+                <li onclick="MTUNE.utils.startArtistRadio('${artistId}'); MTUNE.utils.removeContextMenu();"><i class="fas fa-broadcast-tower"></i> Start Artist Radio</li>
+            </ul>
+        `;
+
+        document.body.appendChild(menu);
+        this.positionContextMenu(event, menu);
+        setTimeout(() => menu.classList.add('active'), 10);
+        document.addEventListener('click', this.removeContextMenu, { once: true });
+    },
+    positionContextMenu(event, menu) {
+        const { clientX, clientY } = event;
+        const { innerWidth, innerHeight } = window;
+
+        menu.style.top = `${clientY}px`;
+        menu.style.left = `${clientX}px`;
+
+        const menuRect = menu.getBoundingClientRect();
+
+        if (clientY + menuRect.height > innerHeight) {
+            menu.style.top = `${clientY - menuRect.height}px`;
+        }
+
+        if (clientX + menuRect.width > innerWidth) {
+            menu.style.left = `${clientX - menuRect.width}px`;
+        }
+
+        // Add staggered animation effect
+        const items = menu.querySelectorAll('li');
+        items.forEach((item, index) => {
+            item.style.setProperty('--i', index);
+        });
     },
     removeContextMenu() {
         const menu = document.querySelector('.context-menu');
@@ -1966,6 +1992,7 @@ const MTUNE = {
                 MTUNE.state.songQueue = playbackState.songQueue;
                 MTUNE.state.currentSongIndex = playbackState.currentSongIndex;
                 
+                this.updateNowPlayingInQueue();
                 const song = MTUNE.state.songQueue[MTUNE.state.currentSongIndex];
                 const fullDetails = await MTUNE.api.getSongDetails(song.id);
                 const songDetails = fullDetails?.data?.[0] || song;
@@ -2025,6 +2052,7 @@ const MTUNE = {
         // Re-render the queue to show the new order if it's open
         if (MTUNE.ui.queueContainer.classList.contains('active')) {
             MTUNE.navigation.toggleQueueView(true);
+            this.updateNowPlayingInQueue();
         }
         MTUNE.utils.showNotification(`"${song.name || song.title}" will play next.`, 'success');
     },
@@ -2032,7 +2060,38 @@ const MTUNE = {
         const song = MTUNE.state.songQueue.find(s => s.id === songId) || MTUNE.state.history.find(s => s.id === songId) || MTUNE.state.favourites.find(s => s.id === songId);
         if (song && !MTUNE.state.songQueue.some(s => s.id === songId)) MTUNE.state.songQueue.push(song);
         if (MTUNE.ui.queueContainer.classList.contains('active')) MTUNE.navigation.toggleQueueView(true);
-        MTUNE.utils.showNotification(`Added "${song.name || song.title}" to queue.`, 'success');
+        if (song) {
+            MTUNE.utils.showNotification(`Added "${song.name || song.title}" to queue.`, 'success');
+        }
+    },
+    async addAlbumToQueue(albumId) {
+        const albumData = await MTUNE.api.getAlbumDetails(albumId);
+        const songs = albumData?.data?.songs;
+        if (songs && songs.length > 0) {
+            MTUNE.state.songQueue.push(...songs);
+            if (MTUNE.ui.queueContainer.classList.contains('active')) MTUNE.navigation.toggleQueueView(true);
+            MTUNE.utils.showNotification(`Added album "${albumData.data.name}" to queue.`, 'success');
+        } else {
+            MTUNE.utils.showNotification('Could not add album to queue.', 'error');
+        }
+    },
+    async addAlbumToPlaylist(albumId) {
+        const albumData = await MTUNE.api.getAlbumDetails(albumId);
+        const songs = albumData?.data?.songs;
+        if (songs && songs.length > 0) {
+            // This is a bit tricky. We can't pass all songs to the modal.
+            // Let's just add the first song and let the user add the rest manually for now.
+            // A more advanced implementation could store the album songs temporarily.
+            MTUNE.utils.showPlaylistModal(songs[0].id);
+            MTUNE.utils.showNotification('Select a playlist to add the first song. More advanced "add all" coming soon!');
+        }
+    },
+    async startArtistRadio(artistId) {
+        const artistData = await MTUNE.api.getArtistDetails(artistId);
+        const topSong = artistData?.data?.topSongs?.[0];
+        if (topSong) {
+            this.startRadio(topSong.id);
+        }
     },
     async savePlaylist(playlistId) {
         if (MTUNE.state.savedPlaylists.some(p => p.id === playlistId)) {
