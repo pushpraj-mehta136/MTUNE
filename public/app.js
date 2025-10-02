@@ -11,7 +11,6 @@ const Musify = {
     savedPlaylists: [],
     audioQuality: '320kbps',
     endlessQueue: true,
-    downloadFolderHandle: null, // For File System Access API
     notifications: true,
     dynamicTheme: true,
     dynamicButtons: true,
@@ -107,7 +106,6 @@ const Musify = {
       audioQuality: document.getElementById('audioQuality'),
       notificationsToggle: document.getElementById('notificationsToggle'),
       endlessQueueToggle: document.getElementById('endlessQueueToggle'),
-      dynamicThemeToggle: document.getElementById('dynamicThemeToggle'),
       dynamicButtonsToggle: document.getElementById('dynamicButtonsToggle'),
       dynamicBackgroundToggle: document.getElementById('dynamicBackgroundToggle'),
       repeatIcon: document.getElementById('repeatIcon'),
@@ -130,6 +128,7 @@ const Musify = {
       lyricsContent: document.getElementById('lyricsContent'),
       queueContainer: document.getElementById('queueContainer'),
       queueList: document.getElementById('queueList'),
+      queueNowPlaying: document.getElementById('queueNowPlaying'),
       // Playlist Modal
       playlistModal: document.getElementById('playlistModal'),
       modalPlaylistList: document.getElementById('modalPlaylistList'),
@@ -844,11 +843,17 @@ const Musify = {
     },
 
     toggleQueueView(show) {
-        const { queueContainer, queueList } = Musify.ui;
+        const { queueContainer, queueList, queueNowPlaying } = Musify.ui;
         queueContainer.classList.toggle('active', show);
         if (show) {
             const currentSongId = Musify.state.songQueue[Musify.state.currentSongIndex]?.id;
-            Musify.render.populate(queueList, Musify.state.songQueue, (s) => Musify.render.songCard(s, { inQueue: true }), 'The queue is empty.', 'Could not load queue.');
+            const currentSong = Musify.state.songQueue.find(s => s.id === currentSongId);
+            if (currentSong) {
+                queueNowPlaying.innerHTML = '';
+                queueNowPlaying.appendChild(Musify.render.songCard(currentSong, { inQueue: true }));
+            }
+            const upcomingSongs = Musify.state.songQueue.slice(Musify.state.currentSongIndex + 1);
+            Musify.render.populate(queueList, upcomingSongs, (s) => Musify.render.songCard(s, { inQueue: true }), 'The queue is empty.', 'Could not load queue.');
             const currentQueueItem = queueList.querySelector(`.song[data-song-id="${currentSongId}"]`);
             if (currentQueueItem) currentQueueItem.classList.add('is-playing');
         }
@@ -1694,16 +1699,12 @@ const Musify = {
           document.documentElement.style.setProperty('--dynamic-primary', 'var(--primary-default)');
           document.documentElement.style.setProperty('--dynamic-primary-light', 'var(--primary-light-default)');
           document.documentElement.style.setProperty('--dynamic-primary-dark', 'var(--primary-dark-default)');
-          if (Musify.state.dynamicButtons) {
-            document.documentElement.style.setProperty('--dynamic-accent', 'var(--accent)');
-          }
+          document.documentElement.style.setProperty('--dynamic-accent', 'var(--accent)');
       };
 
-      if (!imageUrl || !window.ColorThief || !Musify.state.dynamicTheme) {
-          document.body.style.background = '';
-          resetTheme();
-          // When dynamic theme is off, reset all related elements to their default styles
-          const allPlayerButtons = document.querySelectorAll('.player-controls button, .player-mobile-controls button, .now-playing-controls button, .now-playing-actions button, .volume-control i');
+      if (!imageUrl || !window.ColorThief || (!Musify.state.dynamicButtons && !Musify.state.dynamicBackground)) {
+          // When all dynamic themes are off, reset everything.
+          const allPlayerButtons = document.querySelectorAll('.player-controls button, .player-mobile-controls button, .now-playing-controls button, .now-playing-actions button, .volume-control i, .player-like-btn');
           allPlayerButtons.forEach(btn => {
               btn.style.color = '';
               btn.style.background = '';
@@ -1720,6 +1721,9 @@ const Musify = {
           const mobileProgressBar = document.getElementById('mobile-progress-bar');
           if (mobileProgressBar) mobileProgressBar.style.background = '';
           
+          document.body.style.background = '';
+          Musify.ui.nowPlayingImg.style.boxShadow = '';
+          resetTheme();
 
           return;
       }
@@ -1728,13 +1732,12 @@ const Musify = {
       img.crossOrigin = "Anonymous";
       // Use a CORS proxy if direct loading fails, but try direct first.
       img.src = imageUrl.replace(/^http:/, 'https');
-
+      
       img.onload = () => {
           try {
               const colorThief = new ColorThief();
               let dominantColor = colorThief.getColor(img);
               const palette = colorThief.getPalette(img, 5);
-
               // --- New Logic to avoid black/white ---
               const isBlack = (c) => c[0] < 30 && c[1] < 30 && c[2] < 30;
               const isWhite = (c) => c[0] > 225 && c[1] > 225 && c[2] > 225;
@@ -1747,23 +1750,19 @@ const Musify = {
                   }
               }
 
-              // Find a suitable dark color from the palette for text contrast
-              const darkColorRgb = palette.sort((a, b) => (0.299*a[0] + 0.587*a[1] + 0.114*a[2]) - (0.299*b[0] + 0.587*b[1] + 0.114*b[2]))[0];
-              const darkColor = `rgb(${darkColorRgb.join(',')})`;
-
-              // Determine if the dominant color is light or dark to choose a contrasting icon color
-              const dominantLuminance = (0.299*dominantColor[0] + 0.587*dominantColor[1] + 0.114*dominantColor[2]);
-              const iconColor = dominantLuminance > 128 ? 'rgba(0,0,0,0.8)' : 'white';
-
               const accentColor = `rgb(${dominantColor.join(',')})`;
+              const darkColor = `rgb(${palette.sort((a, b) => (0.299*a[0] + 0.587*a[1] + 0.114*a[2]) - (0.299*b[0] + 0.587*b[1] + 0.114*b[2]))[0].join(',')})`;
 
               if (Musify.state.dynamicBackground) {
                 document.body.style.background = `linear-gradient(135deg, ${darkColor} 0%, ${accentColor} 100%)`;
               } else {
-                document.body.style.background = '';
+                document.body.style.background = 'var(--primary)';
               }
 
               if (Musify.state.dynamicButtons) {
+                const dominantLuminance = (0.299*dominantColor[0] + 0.587*dominantColor[1] + 0.114*dominantColor[2]);
+                const iconColor = dominantLuminance > 128 ? 'rgba(0,0,0,0.8)' : 'white';
+
                 document.documentElement.style.setProperty('--dynamic-primary-dark', darkColor);
                 document.documentElement.style.setProperty('--dynamic-primary', accentColor);
                 document.documentElement.style.setProperty('--dynamic-primary-light', `rgb(${palette[palette.length - 1].join(',')})`);
@@ -1787,10 +1786,22 @@ const Musify = {
                 // Apply to mobile progress bar
                 const mobileProgressBar = document.getElementById('mobile-progress-bar');
                 if (mobileProgressBar) mobileProgressBar.style.background = accentColor;
+              } else {
+                  // Reset button styles if dynamic buttons are off
+                  const allPlayerButtons = document.querySelectorAll('.player-controls button, .player-mobile-controls button, .now-playing-controls button, .now-playing-actions button, .volume-control i, .player-like-btn');
+                  allPlayerButtons.forEach(btn => {
+                      btn.style.color = '';
+                      btn.style.background = '';
+                  });
+                  const progressBars = [ Musify.ui.progressBar, Musify.ui.nowPlayingProgressBar, Musify.ui.volumeSlider, Musify.ui.nowPlayingVolumeSlider ];
+                  progressBars.forEach(bar => { if(bar) bar.style.accentColor = ''; });
+                  const mobileProgressBar = document.getElementById('mobile-progress-bar');
+                  if (mobileProgressBar) mobileProgressBar.style.background = '';
+                  document.documentElement.style.setProperty('--dynamic-accent', 'var(--accent)');
               }
 
               // Apply album art glow
-              Musify.ui.nowPlayingImg.style.boxShadow = `0 0 40px -5px ${accentColor}`;
+              Musify.ui.nowPlayingImg.style.boxShadow = Musify.state.dynamicBackground ? `0 0 40px -5px ${accentColor}` : '';
             } catch (e) {
                 console.error("ColorThief error:", e);
                 resetTheme();
@@ -1846,16 +1857,6 @@ const Musify = {
         if (notifications !== null) {
             Musify.state.notifications = notifications === 'true';
             Musify.ui.notificationsToggle.checked = Musify.state.notifications;
-        }
-        const dynamicTheme = localStorage.getItem('musify_dynamicTheme');
-        if (dynamicTheme !== null) {
-            Musify.state.dynamicTheme = dynamicTheme === 'true';
-            Musify.ui.dynamicThemeToggle.checked = Musify.state.dynamicTheme;
-            // Also update the sub-settings state
-            const subSettings = document.getElementById('dynamic-sub-settings');
-            if (subSettings) {
-                subSettings.classList.toggle('disabled', !Musify.state.dynamicTheme);
-            }
         }
         const dynamicButtons = localStorage.getItem('musify_dynamicButtons');
         if (dynamicButtons !== null) {
@@ -2224,19 +2225,6 @@ function toggleRepeat() {
   Musify.player.toggleRepeat();
 }
 
-function toggleNotifications(isEnabled) {
-  Musify.utils.setNotifications(isEnabled);
-}
-
-function toggleDynamicTheme(isEnabled) {
-  Musify.utils.setDynamicTheme(isEnabled);
-  // Enable/disable sub-settings
-  const subSettings = document.getElementById('dynamic-sub-settings');
-  if (subSettings) {
-      subSettings.classList.toggle('disabled', !isEnabled);
-  }
-}
-
 function toggleDynamicButtons(isEnabled) {
   Musify.state.dynamicButtons = isEnabled;
   localStorage.setItem('musify_dynamicButtons', isEnabled);
@@ -2250,7 +2238,13 @@ function toggleDynamicBackground(isEnabled) {
 }
 
 function toggleEndlessQueue(isEnabled) {
-  Musify.utils.setEndlessQueue(isEnabled);
+  Musify.state.endlessQueue = isEnabled;
+  localStorage.setItem('musify_endlessQueue', isEnabled);
+}
+
+function toggleNotifications(isEnabled) {
+  Musify.state.notifications = isEnabled;
+  localStorage.setItem('musify_notifications', isEnabled);
 }
 
 function toggleFavourite(songId) {
