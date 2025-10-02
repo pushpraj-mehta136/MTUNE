@@ -792,7 +792,14 @@ const Musify = {
         const btnSection = btn.dataset.section;
         btn.classList.toggle('active', btnSection === sectionId);
       });
-      Musify.ui.mainSearchBar.style.display = (sectionId === 'search') ? 'flex' : 'none';
+
+      // Toggle a class on the main content area for responsive CSS to handle the search bar
+      if (sectionId === 'search') {
+        Musify.ui.mainContent.classList.add('search-active');
+      } else {
+        Musify.ui.mainContent.classList.remove('search-active');
+      }
+
       const loadAction = {
         'discover': Musify.navigation.loadDiscover,
         'search': Musify.navigation.loadSongs,

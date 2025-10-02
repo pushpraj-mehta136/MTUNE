@@ -1345,7 +1345,11 @@ input:checked + .slider:before {
         z-index: 102;
     }
     .sidebar-header { display: none; }
-    #mainSearchBar { display: none !important; } /* Ensure it's hidden */
+    /* Hide search bar by default on mobile, JS will show it on the search page */
+    .main-content:not(.search-active) #mainSearchBar {
+        display: none !important;
+    }
+
     .discover-header {
         display: flex;
         flex-direction: column;
