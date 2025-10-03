@@ -842,10 +842,6 @@ const MTUNE = {
         const index = MTUNE.state.songQueue.findIndex(s => s.id === songId);
         if (index !== -1) this.playFromQueue(songId);
     },
-    updateNowPlayingInQueue() {
-        const currentSong = MTUNE.state.songQueue[MTUNE.state.currentSongIndex];
-        MTUNE.ui.queueNowPlaying.innerHTML = currentSong ? MTUNE.render.songCard(currentSong, { inQueue: true, isNowPlaying: true }).outerHTML : '<div>Nothing is playing.</div>';
-    },
     addToHistory(song) {
         // Add to history only if it's not the last song added
         if (MTUNE.state.history[0]?.id !== song.id) {
@@ -931,12 +927,22 @@ const MTUNE = {
 
     toggleQueueView(show) {
         const { queueContainer, queueList, queueNowPlaying } = MTUNE.ui;
+        const state = MTUNE.state;
         queueContainer.classList.toggle('active', show);
+
         if (show) {
-            this.updateNowPlayingInQueue();
-            const upcomingSongs = MTUNE.state.songQueue.slice(MTUNE.state.currentSongIndex + 1); // Show only upcoming
+            // Render the currently playing song
+            const currentSong = state.songQueue[state.currentSongIndex];
+            if (currentSong) {
+                queueNowPlaying.innerHTML = MTUNE.render.songCard(currentSong, { inQueue: true, isNowPlaying: true }).outerHTML;
+            } else {
+                queueNowPlaying.innerHTML = '<div>Nothing is playing.</div>';
+            }
+
+            // Render the upcoming songs
+            const upcomingSongs = state.songQueue.slice(state.currentSongIndex + 1);
             MTUNE.render.populate(queueList, upcomingSongs, (s) => MTUNE.render.songCard(s, { inQueue: true }), 'The queue is empty.', 'Could not load queue.');
-         }
+        }
     },
 
     async loadDiscover() {
@@ -2084,8 +2090,6 @@ const MTUNE = {
             if (playbackState.songQueue && playbackState.songQueue.length > 0 && playbackState.currentSongIndex > -1) {
                 MTUNE.state.songQueue = playbackState.songQueue;
                 MTUNE.state.currentSongIndex = playbackState.currentSongIndex;
-                
-                this.updateNowPlayingInQueue();
                 const song = MTUNE.state.songQueue[MTUNE.state.currentSongIndex];
                 const fullDetails = await MTUNE.api.getSongDetails(song.id);
                 const songDetails = fullDetails?.data?.[0] || song;
@@ -2145,8 +2149,7 @@ const MTUNE = {
 
         // Re-render the queue to show the new order if it's open
         if (MTUNE.ui.queueContainer.classList.contains('active')) {
-            MTUNE.navigation.toggleQueueView(true);
-            this.updateNowPlayingInQueue();
+            MTUNE.navigation.toggleQueueView(true); // This will re-render the whole queue view
         }
         MTUNE.utils.showNotification(`"${song.name || song.title}" will play next.`, 'success');
     },
