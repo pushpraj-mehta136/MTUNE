@@ -113,11 +113,14 @@
             <h1 id="allSongsHeader">Song Results</h1>
             <div class="sort-controls">
               <label for="songSort">Sort by:</label>
-              <select id="songSort" onchange="MTUNE.utils.sortSongList('allSongsList', this.value)">
+              <select id="songSort" onchange="MTUNE.utils.sortSongList('allSongsList')">
                 <option value="default">Default</option>
-                <option value="name">Name (A-Z)</option>
+                <option value="name">Name</option>
                 <option value="duration">Duration</option>
               </select>
+              <button id="sortDirBtn" class="sort-dir-btn" onclick="MTUNE.utils.toggleSortDirection()" title="Toggle Sort Direction">
+                <i class="fas fa-arrow-down-a-z"></i>
+              </button>
             </div>
           </div>
           <div id="allSongsList" class="song-list"></div>
@@ -170,26 +173,35 @@
       </section>
 
       <section id="saved-playlists" class="content-section">
-        <h1><i class="fas fa-bookmark" style="color: var(--accent);"></i> Saved Playlists</h1>
-        <div id="savedPlaylistsContainer" class="album-grid"></div>
+        <div class="details-page-wrapper">
+          <button class="details-back-btn" onclick="MTUNE.navigation.goBack()"><i class="fas fa-arrow-left"></i></button>
+          <h1><i class="fas fa-bookmark" style="color: var(--accent);"></i> Saved Playlists</h1>
+          <div id="savedPlaylistsContainer" class="album-grid"></div>
+        </div>
       </section>
 
       <section id="favourites" class="content-section">
-        <h1><i class="fas fa-heart" style="color: var(--accent);"></i> Favourite Songs</h1>
-        <div class="contextual-search-bar">
-          <i class="fas fa-search"></i>
-          <input type="search" oninput="filterSongList(this.value, 'favouriteSongsList')" placeholder="Filter favourite songs...">
+        <div class="details-page-wrapper">
+          <button class="details-back-btn" onclick="MTUNE.navigation.goBack()"><i class="fas fa-arrow-left"></i></button>
+          <h1><i class="fas fa-heart" style="color: var(--accent);"></i> Favourite Songs</h1>
+          <div class="contextual-search-bar">
+            <i class="fas fa-search"></i>
+            <input type="search" oninput="filterSongList(this.value, 'favouriteSongsList')" placeholder="Filter favourite songs...">
+          </div>
+          <div id="favouriteSongsList" class="song-list"></div>
         </div>
-        <div id="favouriteSongsList" class="song-list"></div>
       </section>
 
       <section id="downloads" class="content-section">
-        <h1><i class="fas fa-download"></i> Downloads</h1>
-        <div class="contextual-search-bar">
-          <i class="fas fa-search"></i>
-          <input type="search" placeholder="Filter downloads..." disabled>
+        <div class="details-page-wrapper">
+          <button class="details-back-btn" onclick="MTUNE.navigation.goBack()"><i class="fas fa-arrow-left"></i></button>
+          <h1><i class="fas fa-download"></i> Downloads</h1>
+          <div class="contextual-search-bar">
+            <i class="fas fa-search"></i>
+            <input type="search" placeholder="Filter downloads..." disabled>
+          </div>
+          <div class="loading">Downloads feature is coming soon!</div>
         </div>
-        <div class="loading">Downloads feature is coming soon!</div>
       </section>
 
       <section id="playlist-details" class="content-section">
@@ -248,6 +260,7 @@
             <button class="settings-nav-item" data-target="settings-downloads"><i class="fas fa-download"></i> Downloads</button>
             <button class="settings-nav-item" data-target="settings-data"><i class="fas fa-database"></i> Data Management</button>
             <button class="settings-nav-item" data-target="settings-general"><i class="fas fa-cog"></i> General</button>
+            <button class="settings-nav-item" data-target="settings-about"><i class="fas fa-info-circle"></i> About</button>
           </div>
           <div class="settings-content">
             <div id="settings-appearance" class="settings-pane active">
@@ -323,6 +336,25 @@
                   <input type="checkbox" id="notificationsToggle" data-setting="notifications" checked>
                   <span class="slider"></span>
                 </label>
+              </div>
+            </div>
+
+            <div id="settings-about" class="settings-pane">
+              <h2>About MTUNE</h2>
+              <div class="about-section">
+                <img src="/logo.png" alt="MTUNE Logo" class="about-logo">
+                <h3>MTUNE Music Player</h3>
+                <p>Version 1.0.0</p>
+                <p>Your personal gateway to the world of music, built with passion and modern web technologies.</p>
+                <div class="about-links">
+                  <a href="https://github.com/pushpender-2003/MTUNE" target="_blank" rel="noopener noreferrer"><i class="fab fa-github"></i> Source Code</a>
+                  <a href="https://pushprajmehta.cc.cc/" target="_blank" rel="noopener noreferrer" class="contact-link"><i class="fas fa-globe"></i> Contact</a>
+                  <a href="https://github.com/pushpender-2003/MTUNE/issues" target="_blank" rel="noopener noreferrer"><i class="fas fa-bug"></i> Report Bug</a>
+                </div>
+                <div class="creator-info">
+                  <p>Created by Pushpraj Mehta</p>
+                  <p class="last-updated">Last Updated: <span id="lastUpdatedDate"></span></p>
+                </div>
               </div>
             </div>
           </div>

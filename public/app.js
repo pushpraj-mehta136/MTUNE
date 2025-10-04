@@ -33,6 +33,7 @@ const MTUNE = {
     },
     sleepTimerId: null,
     sleepTimerEndTime: null,
+    sortDirection: 'asc', // 'asc' or 'desc'
   },
 
   ui: {},
@@ -147,6 +148,8 @@ const MTUNE = {
       sleepTimerBtn: document.getElementById('sleepTimerBtn'),
       sleepTimerOptions: document.getElementById('sleepTimerOptions'),
       crossfadeDuration: document.getElementById('crossfadeDuration'),
+      // About Page
+      lastUpdatedDate: document.getElementById('lastUpdatedDate'),
     };
     this.ui.volumeSlider = document.getElementById('volumeSlider');
 
@@ -169,7 +172,6 @@ const MTUNE = {
     this.ui.progressBar.addEventListener('input', () => this.player.seek());
     this.ui.nowPlayingProgressBar.addEventListener('input', (e) => this.player.seek(e.target));
     this.ui.searchBar.addEventListener('keypress', e => { if (e.key === "Enter") this.navigation.triggerSearch(); });
-    this.ui.searchBar.addEventListener('input', () => this.utils.debounce(this.navigation.showSearchSuggestions.bind(this.navigation), 300)());
     document.addEventListener('click', (e) => { if (!e.target.closest('.search-input-container')) this.ui.searchSuggestions.classList.remove('active'); });
     window.addEventListener('beforeunload', () => this.utils.savePlaybackState());
     this.ui.mainContent.addEventListener('scroll', (e) => this.utils.handleInfiniteScroll(e));
@@ -227,6 +229,11 @@ const MTUNE = {
         this.ui.nowPlayingRepeatBtn.classList.toggle('active', this.state.repeatMode !== 'off');
         this.ui.nowPlayingRepeatIcon.className = this.ui.repeatIcon.className;
     }
+    // Set last updated date
+    if (this.ui.lastUpdatedDate) {
+        this.ui.lastUpdatedDate.textContent = new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
+    }
+
     this.navigation.showSection('discover');
   },
 
@@ -271,7 +278,7 @@ const MTUNE = {
             playButtonClickAction = `MTUNE.player.playFromCardContext(event, '${item.id}', 'artist', true)`;
         } else {
             const functionMap = { 'playlist': 'showPlaylist', 'album': 'showAlbum', 'artist': 'showArtist' };
-            cardClickAction = `MTUNE.navigation.${functionMap[type]}(event, '${item.id}')`;
+            cardClickAction = `MTUNE.navigation.${functionMap[type]}(event, '${item.id}')`; // This was correct
         }
 
         div.innerHTML = `
@@ -898,6 +905,7 @@ const MTUNE = {
         'search-playlists-all': () => {},
         'search-artists-all': () => {},
         'search-artists-all': () => {},
+        'search-artists-all': () => {},
 
       }[sectionId];
 
@@ -989,7 +997,7 @@ const MTUNE = {
       const [albumData, playlistData, artistData] = await Promise.all([
         MTUNE.api._fetch('/search/albums?query=top albums&limit=30'),
         MTUNE.api._fetch('/search/playlists?query=top playlists&limit=30'),
-        MTUNE.api._fetch('/search/artists?query=popular artists&limit=10') // Fetch fewer artists to get their songs
+        MTUNE.api._fetch('/search/artists?query=popular artists&limit=30') // Fetch more artists
       ]);
 
       // Fetch songs for each recommended artist
@@ -1000,15 +1008,19 @@ const MTUNE = {
           artistData.data.results = await Promise.all(artistSongPromises);
       }
 
+      // If no personalized songs were found, fetch generic ones as a fallback.
+      if (!songData?.data) {
+          songData = await MTUNE.api._fetch('/search/songs?query=latest hits&limit=30');
+      }
+
       // Store the fetched data in the state for the player to use
       MTUNE.state.discover = {
-          songs: songData?.data || (await MTUNE.api._fetch('/search/songs?query=latest hits&limit=30'))?.data?.results || [],
+          songs: songData?.data?.results || songData?.data || [],
           albums: albumData?.data?.results || [],
           playlists: playlistData?.data?.results || [],
           artists: artistData?.data?.results || [],
       };
 
-      // Populate the new "Recommended" sections
       MTUNE.render.populate(recommendedSongs, MTUNE.state.discover.songs, MTUNE.render.discoverCard, 'No recommended songs found.', 'Failed to load songs.');
       MTUNE.render.populate(recommendedAlbums, MTUNE.state.discover.albums, MTUNE.render.discoverCard, 'No recommended albums found.', 'Failed to load albums.');
       MTUNE.render.populate(recommendedPlaylists, MTUNE.state.discover.playlists, MTUNE.render.discoverCard, 'No recommended playlists found.', 'Failed to load playlists.');
@@ -1350,7 +1362,7 @@ const MTUNE = {
         loadingIndicator.remove();
     },
 
-    async showAlbum(albumId) {
+    async showAlbum(event, albumId) { // Added missing event parameter
         this.showSection('album-details');
         const { albumDetailsHeader, albumSongs } = MTUNE.ui;
         MTUNE.render._renderMessage(albumDetailsHeader, '');
@@ -1544,8 +1556,8 @@ const MTUNE = {
         const button = event.target.closest('button');
 
         if (button) {
-            // Prevent ripple on settings buttons if desired
-            if (button.closest('.settings-option')) return;
+            // Prevent ripple on settings navigation and option buttons
+            if (button.closest('.settings-option') || button.classList.contains('settings-nav-item')) return;
 
             const circle = document.createElement('span');
             const diameter = Math.max(button.clientWidth, button.clientHeight);
@@ -1787,17 +1799,17 @@ const MTUNE = {
 
         sheetContent.innerHTML = `
             <ul>
-                <li onclick="MTUNE.utils.playNext('${songId}'); ${close.toString()}()"><i class="fas fa-level-up-alt"></i> Play Next</li>
-                <li onclick="MTUNE.utils.addToQueue('${songId}'); ${close.toString()}()"><i class="fas fa-plus-square"></i> Add to Queue</li>
+                <li onclick="MTUNE.utils.playNext('${songId}'); MTUNE.utils.hideBottomSheet()"><i class="fas fa-level-up-alt"></i> Play Next</li>
+                <li onclick="MTUNE.utils.addToQueue('${songId}'); MTUNE.utils.hideBottomSheet()"><i class="fas fa-plus-square"></i> Add to Queue</li>
                 <li class="separator"></li>
-                <li onclick="MTUNE.utils.startRadio('${songId}'); ${close.toString()}()"><i class="fas fa-broadcast-tower"></i> Start Radio</li>
-                <li onclick="MTUNE.utils.toggleFavourite('${songId}'); ${close.toString()}()">
+                <li onclick="MTUNE.utils.startRadio('${songId}'); MTUNE.utils.hideBottomSheet()"><i class="fas fa-broadcast-tower"></i> Start Radio</li>
+                <li onclick="MTUNE.utils.toggleFavourite('${songId}'); MTUNE.utils.hideBottomSheet()">
                     <i class="fas fa-heart" style="color: ${isFavourited ? 'var(--accent)' : 'inherit'}"></i>
                     ${isFavourited ? 'Remove from Favourites' : 'Add to Favourites'}
                 </li>
-                <li onclick="MTUNE.utils.downloadSong('${songId}'); ${close.toString()}()"><i class="fas fa-download"></i> Download</li>
+                <li onclick="MTUNE.utils.downloadSong('${songId}'); MTUNE.utils.hideBottomSheet()"><i class="fas fa-download"></i> Download</li>
                 <li class="separator"></li>
-                <li onclick="MTUNE.utils.showPlaylistModal('${songId}'); ${close.toString()}()"><i class="fas fa-plus"></i> Add to Playlist...</li>
+                <li onclick="MTUNE.utils.showPlaylistModal('${songId}'); MTUNE.utils.hideBottomSheet()"><i class="fas fa-plus"></i> Add to Playlist...</li>
             </ul>
         `;
 
@@ -1814,15 +1826,15 @@ const MTUNE = {
         const isApiPlaylist = !playlistId.startsWith('user_');
 
         const saveOption = isApiPlaylist ? `<li onclick="MTUNE.utils.savePlaylist('${playlistId}')"><i class="fas fa-bookmark"></i> Save to Library</li>` : '';
-        const deleteOption = playlist ? `<li onclick="MTUNE.utils.deletePlaylist('${playlistId}')"><i class="fas fa-trash"></i> Delete Playlist</li>` : '';
-        const renameOption = playlist ? `<li onclick="MTUNE.utils.renamePlaylist('${playlistId}')"><i class="fas fa-pencil-alt"></i> Rename Playlist</li>` : '';
+        const deleteOption = playlist ? `<li onclick="MTUNE.utils.deletePlaylist('${playlistId}'); MTUNE.utils.removeContextMenu();"><i class="fas fa-trash"></i> Delete Playlist</li>` : '';
+        const renameOption = playlist ? `<li onclick="MTUNE.utils.renamePlaylist('${playlistId}'); MTUNE.utils.removeContextMenu();"><i class="fas fa-pencil-alt"></i> Rename Playlist</li>` : '';
 
         const menuItems = `
             <ul>
                 <li onclick="MTUNE.navigation.showPlaylist(event, '${playlistId}'); MTUNE.utils.removeContextMenu();"><i class="fas fa-eye"></i> View Playlist</li>
                 ${saveOption ? `<li class="separator"></li>${saveOption}` : ''}
-                ${renameOption ? `<li class="separator"></li><li onclick="MTUNE.utils.renamePlaylist('${playlistId}')"><i class="fas fa-pencil-alt"></i> Rename Playlist</li>` : ''}
-                ${deleteOption ? `<li class="separator"></li><li onclick="MTUNE.utils.deletePlaylist('${playlistId}')"><i class="fas fa-trash"></i> Delete Playlist</li>` : ''}
+                ${renameOption || ''}
+                ${deleteOption || ''}
             </ul>
         `;
 
@@ -1842,6 +1854,7 @@ const MTUNE = {
         this.positionContextMenu(event, menu);
 
         document.addEventListener('click', this.removeContextMenu, { once: true });
+        setTimeout(() => menu.classList.add('active'), 10);
     },
     deletePlaylist(playlistId) {
         const playlist = MTUNE.state.userPlaylists.find(p => p.id === playlistId);
@@ -1891,7 +1904,7 @@ const MTUNE = {
         menu.innerHTML = `
             <ul>
                 <li onclick="MTUNE.player.playFromCardContext(event, '${artistId}', 'artist'); MTUNE.utils.removeContextMenu();"><i class="fas fa-play"></i> Play Top Songs</li>
-                <li onclick="MTUNE.utils.startArtistRadio('${artistId}'); MTUNE.utils.removeContextMenu();"><i class="fas fa-broadcast-tower"></i> Start Artist Radio</li>
+                <li onclick="MTUNE.utils.startArtistRadio('${artistId}'); MTUNE.utils.removeContextMenu(); MTUNE.utils.hideBottomSheet();"><i class="fas fa-broadcast-tower"></i> Start Artist Radio</li>
             </ul>
         `;
 
@@ -2522,6 +2535,9 @@ const MTUNE = {
             if (MTUNE.state.navigation.currentSection === 'history') MTUNE.navigation.loadHistory();
         }
     },
+    saveFavourites() {
+        localStorage.setItem('musify_favourites', JSON.stringify(MTUNE.state.favourites));
+    },
     saveUserPlaylists() {
         try {
             localStorage.setItem('musify_userPlaylists', JSON.stringify(MTUNE.state.userPlaylists));
@@ -2585,11 +2601,36 @@ const MTUNE = {
             window.location.reload();
         }
     },
-    sortSongList(containerId, sortBy) {
+    toggleSortDirection() {
+        MTUNE.state.sortDirection = MTUNE.state.sortDirection === 'asc' ? 'desc' : 'asc';
+        this.sortSongList('allSongsList'); // Re-apply sort
+    },
+    sortSongList(containerId) {
         const container = document.getElementById(containerId);
-        if (!container) return;
+        const sortSelect = document.getElementById('songSort');
+        const sortDirBtn = document.getElementById('sortDirBtn');
+        if (!container || !sortSelect || !sortDirBtn) return;
 
+        const sortBy = sortSelect.value;
+        const direction = MTUNE.state.sortDirection;
         const songs = Array.from(container.querySelectorAll('.song'));
+        const icon = sortDirBtn.querySelector('i');
+
+        // Update sort direction button icon
+        if (sortBy === 'name') {
+            icon.className = direction === 'asc' ? 'fas fa-arrow-down-a-z' : 'fas fa-arrow-up-z-a';
+        } else if (sortBy === 'duration') {
+            icon.className = direction === 'asc' ? 'fas fa-arrow-down-short-wide' : 'fas fa-arrow-up-wide-short';
+        } else {
+            icon.className = 'fas fa-arrows-up-down'; // Default icon
+        }
+
+        if (sortBy === 'default') {
+            // Re-fetch the original order from the state
+            const originalOrder = MTUNE.state.search.songs.results;
+            MTUNE.render.populate(container, originalOrder, MTUNE.render.songCard);
+            return;
+        }
         
         songs.sort((a, b) => {
             const songA = MTUNE.state.songQueue.find(s => s.id === a.dataset.songId);
@@ -2597,14 +2638,17 @@ const MTUNE = {
 
             if (!songA || !songB) return 0;
 
+            let comparison = 0;
+
             if (sortBy === 'name') {
                 const nameA = (songA.name || songA.title).toLowerCase();
                 const nameB = (songB.name || songB.title).toLowerCase();
-                return nameA.localeCompare(nameB);
+                comparison = nameA.localeCompare(nameB);
             } else if (sortBy === 'duration') {
-                return (songA.duration || 0) - (songB.duration || 0);
+                comparison = (songA.duration || 0) - (songB.duration || 0);
             }
-            return 0; // 'default' does not re-sort, keeps original API order
+
+            return direction === 'asc' ? comparison : -comparison;
         });
 
         container.innerHTML = '';

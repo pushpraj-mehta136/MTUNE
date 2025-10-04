@@ -515,7 +515,6 @@ body.dark .scrollable-row::-webkit-scrollbar-track {
 .discover-card {
   display: flex;
   flex-direction: column;
-  gap: 0.5rem;
   width: 240px;
   flex-shrink: 0;
   transition: var(--transition);
@@ -523,6 +522,11 @@ body.dark .scrollable-row::-webkit-scrollbar-track {
 
 .discover-card:hover {
   transform: translateY(-4px);
+}
+
+.search-grid .discover-card {
+    width: 100%; /* Allow card to fill grid cell */
+    flex-shrink: 1;
 }
 
 .discover-card-art {
@@ -707,6 +711,13 @@ body.dark .scrollable-row::-webkit-scrollbar-track {
   color: var(--text-secondary);
   font-size: 0.85rem;
 }
+.song-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem; /* Adds a consistent gap between song items */
+}
+
+
 .card-meta {
     display: flex;
     gap: 0.5rem;
@@ -1179,6 +1190,74 @@ body.dark .song-list::-webkit-scrollbar-track {
   background: #e74c3c !important;
 }
 
+.about-section {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  padding: 2rem 0;
+  gap: 1rem;
+}
+
+.about-logo {
+  width: 100px;
+  height: auto;
+  margin-bottom: 1rem;
+}
+
+.about-section h3 {
+  font-size: 1.5rem;
+  color: var(--text-primary);
+}
+
+.about-section p {
+  color: var(--text-secondary);
+  max-width: 400px;
+}
+
+.about-links {
+  display: flex;
+  gap: 1.5rem;
+  margin-top: 1.5rem;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+.about-links a {
+  color: var(--accent);
+  text-decoration: none;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.creator-info {
+  margin-top: 1.5rem;
+  padding-top: 1.5rem;
+  border-top: 1px solid var(--glass-border);
+  width: 100%;
+  max-width: 400px;
+}
+.creator-info p {
+  font-style: italic;
+}
+.creator-info .last-updated {
+  font-size: 0.8rem;
+  margin-top: 0.5rem;
+  font-style: normal;
+}
+
+.creator-info .contact-link {
+  color: var(--accent);
+  text-decoration: none;
+  font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-top: 0.5rem;
+}
+
 .settings-select {
   background: rgba(255, 255, 255, 0.1);
   border: 1px solid var(--glass-border);
@@ -1275,6 +1354,26 @@ input:checked + .slider:before {
   color: var(--text-primary);
   font-size: 0.9rem;
   cursor: pointer;
+}
+
+.sort-dir-btn {
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid var(--glass-border);
+  color: var(--text-primary);
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  font-size: 1.1rem;
+  cursor: pointer;
+  transition: var(--transition);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.sort-dir-btn:hover {
+  background: var(--accent);
+  color: white;
 }
 
 /* --- Details Page Redesign (Playlist, Album, Artist) --- */
@@ -1959,6 +2058,13 @@ input:checked + .slider:before {
   color: var(--accent-light);
 }
 
+.library-quick-access {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 1rem;
+  margin-bottom: 2rem;
+}
+
 .add-new-playlist {
   display: flex;
   flex-direction: column;
@@ -2266,6 +2372,25 @@ input:checked + .slider:before {
         padding-left: 1.5rem;
         padding-right: 1.5rem;
     }
+
+    .details-header-content {
+        flex-direction: column;
+        text-align: center;
+        gap: 1.5rem;
+    }
+
+    .details-header-content img {
+        width: 60vw;
+        height: 60vw;
+        max-width: 250px;
+        max-height: 250px;
+    }
+
+    .details-header-text h1 {
+        font-size: 2rem;
+    }
+
+
 }
 
 /* Drag and Drop styles */
