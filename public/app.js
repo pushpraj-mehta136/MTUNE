@@ -57,8 +57,8 @@ const MTUNE = {
     searchAll: (query) => MTUNE.api._fetch(`/search?query=${encodeURIComponent(query)}`),
     getSongDetails: (id) => MTUNE.api._fetch(`/songs/${id}`),
     getPlaylistDetails: (id, page = 1, limit = 50) => MTUNE.api._fetch(`/playlists?id=${id}&page=${page}&limit=${limit}`),
-    getAlbumDetails: (id) => MTUNE.api._fetch(`/albums/${id}`),
-    getArtistDetails: (id) => MTUNE.api._fetch(`/artists/${id}`),
+    getAlbumDetails: (id) => MTUNE.api._fetch(`/albums?id=${id}`), // This was correct based on API docs
+    getArtistDetails: (id) => MTUNE.api._fetch(`/artists/${id}`), // This was also correct based on API docs
     getArtistSongs: (id, page) => MTUNE.api._fetch(`/artists/${id}/songs?page=${page}&limit=50`),
     getSongSuggestions: (songId, limit = 10) => MTUNE.api._fetch(`/songs/${songId}/suggestions?limit=${limit}`),
     getCharts: () => MTUNE.api._fetch('/charts'),
@@ -151,6 +151,7 @@ const MTUNE = {
       // About Page
       lastUpdatedDate: document.getElementById('lastUpdatedDate'),
     };
+    this.ui.bottomPlayer = document.getElementById('bottomPlayer');
     this.ui.volumeSlider = document.getElementById('volumeSlider');
 
     // Bind event listeners
@@ -621,6 +622,7 @@ const MTUNE = {
       if (state.currentSongIndex < 0 || state.currentSongIndex >= state.songQueue.length) return;
 
       const song = state.songQueue[state.currentSongIndex];
+      MTUNE.ui.bottomPlayer.classList.add('visible');
       this.updateInfo(song);
       MTUNE.ui.playPauseIcon.className = 'fas fa-spinner fa-spin';
 
@@ -832,6 +834,7 @@ const MTUNE = {
       } else if (state.currentSongIndex === state.songQueue.length - 1 && state.repeatMode === 'off' && !state.endlessQueue) {
           // End of queue, no repeat, no endless queue
       } else this.next();
+      if (state.songQueue.length === 0) MTUNE.ui.bottomPlayer.classList.remove('visible');
       if (state.endlessQueue && state.currentSongIndex === state.songQueue.length - 1) {
           MTUNE.utils.startRadio(state.songQueue[state.currentSongIndex].id, true); // Start radio without replacing queue
       }
@@ -1384,17 +1387,10 @@ const MTUNE = {
         MTUNE.render._renderMessage(albumDetailsHeader, '');
         MTUNE.render._renderMessage(albumSongs, 'Loading album songs...');
 
-        const albumData = await MTUNE.api.getAlbumDetails(albumId);
+        const albumData = await MTUNE.api._fetch(`/albums?id=${albumId}`);
         const data = albumData?.data;
 
         if (data) {
-            // If the initial response doesn't contain all songs, fetch them separately.
-            if (data.songs.length < data.songCount) {
-                const albumSongsData = await MTUNE.api.getAlbumDetails(albumId);
-                if (albumSongsData?.data?.songs) {
-                    data.songs = albumSongsData.data.songs;
-                }
-            }
             MTUNE.render.albumHeader(data);
             MTUNE.render.populate(albumSongs, data.songs, MTUNE.render.songCard, 'This album is empty.', 'Could not load songs.');
             MTUNE.state.songQueue = data.songs;
@@ -1414,7 +1410,7 @@ const MTUNE = {
         MTUNE.render._renderMessage(artistTopSongs, 'Loading top songs...');
 
         // Fetch artist details which includes top songs
-        const artistDetailsData = await MTUNE.api.getArtistDetails(artistId);
+        const artistDetailsData = await MTUNE.api._fetch(`/artists/${artistId}`);
 
         const details = artistDetailsData?.data;
         // The top songs are now part of the main artist details response
@@ -2202,6 +2198,7 @@ const MTUNE = {
                 MTUNE.state.currentSongIndex = playbackState.currentSongIndex;
                 const song = MTUNE.state.songQueue[MTUNE.state.currentSongIndex];
                 const fullDetails = await MTUNE.api.getSongDetails(song.id);
+                MTUNE.ui.bottomPlayer.classList.add('visible');
                 const songDetails = fullDetails?.data?.[0] || song;
                 
                 if (songDetails && Array.isArray(songDetails.downloadUrl) && songDetails.downloadUrl.length > 0) {

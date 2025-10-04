@@ -809,6 +809,10 @@ body.dark .song-list::-webkit-scrollbar-track {
   align-items: center;
   box-shadow: var(--glass-shadow);
   z-index: 100; /* Keep player on top */
+  transition: transform 0.5s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.5s ease;
+  transform: translateY(120%); /* Start hidden */
+  opacity: 0;
+  pointer-events: none;
 }
 
 .player-song-info {
@@ -818,6 +822,13 @@ body.dark .song-list::-webkit-scrollbar-track {
   grid-column: 1 / 2;
   min-width: 0; /* Prevent flex item from overflowing */
 }
+
+.bottom-player.visible {
+  transform: translateY(0);
+  opacity: 1;
+  pointer-events: auto;
+}
+
 
 .player-song-info img {
   width: 56px;
