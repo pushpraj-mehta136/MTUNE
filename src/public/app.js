@@ -150,6 +150,7 @@ const MTUNE = {
       crossfadeDuration: document.getElementById('crossfadeDuration'),
       // About Page
       lastUpdatedDate: document.getElementById('lastUpdatedDate'),
+      pullToRefresh: document.getElementById('pull-to-refresh'),
     };
     this.ui.volumeSlider = document.getElementById('volumeSlider');
 
@@ -942,6 +943,16 @@ const MTUNE = {
         }
     },
 
+    refreshCurrentSection() {
+        const { navigation } = MTUNE.state;
+        // Invalidate the loaded status for the current section to force a reload
+        navigation.loadedSections.delete(navigation.currentSection);
+        // Call showSection again to trigger the loadAction
+        this.showSection(navigation.currentSection);
+        // Return a promise that resolves after a short delay to allow UI to update
+        return new Promise(resolve => setTimeout(resolve, 1000));
+    },
+
     toggleNowPlayingView(show) {
         const { nowPlayingView } = MTUNE.ui;
         nowPlayingView.classList.toggle('active', show);
@@ -1556,6 +1567,64 @@ const MTUNE = {
             isDragging = false;
         });
         mobileProgressBar.addEventListener('click', seek);
+    },
+    addMobileGestures() {
+        const player = document.querySelector('.bottom-player');
+        const mainContent = this.ui.mainContent;
+        const pullToRefresh = this.ui.pullToRefresh;
+        let touchStartY = 0;
+        let isPulling = false;
+        const PULL_THRESHOLD = 80; // Pixels to pull before refresh triggers
+
+        mainContent.addEventListener('touchstart', (e) => {
+            if (mainContent.scrollTop === 0) {
+                touchStartY = e.touches[0].clientY;
+                isPulling = true;
+            }
+        }, { passive: true });
+
+        mainContent.addEventListener('touchmove', (e) => {
+            if (!isPulling) return;
+
+            const pullDistance = e.touches[0].clientY - touchStartY;
+
+            if (pullDistance > 0) {
+                e.preventDefault(); // Prevent browser's native pull-to-refresh
+                mainContent.style.transform = `translateY(${pullDistance}px)`;
+                pullToRefresh.style.transform = `translateY(${pullDistance}px)`;
+
+                if (pullDistance > PULL_THRESHOLD) {
+                    pullToRefresh.classList.add('pulling');
+                } else {
+                    pullToRefresh.classList.remove('pulling');
+                }
+            }
+        }, { passive: false }); // Needs to be non-passive to preventDefault
+
+        mainContent.addEventListener('touchend', (e) => {
+            if (!isPulling) return;
+            isPulling = false;
+
+            const pullDistance = e.changedTouches[0].clientY - touchStartY;
+
+            if (pullDistance > PULL_THRESHOLD) {
+                pullToRefresh.classList.remove('pulling');
+                pullToRefresh.classList.add('refreshing');
+                mainContent.classList.add('refreshing');
+
+                this.navigation.refreshCurrentSection().then(() => {
+                    // Reset after refresh is complete
+                    mainContent.classList.remove('refreshing');
+                    pullToRefresh.classList.remove('refreshing');
+                    mainContent.style.transform = 'translateY(0)';
+                    pullToRefresh.style.transform = 'translateY(0)';
+                });
+            } else {
+                // Return to original position
+                mainContent.style.transform = 'translateY(0)';
+                pullToRefresh.style.transform = 'translateY(0)';
+            }
+        });
     },
     applyRippleEffect(event) {
         const button = event.target.closest('button');

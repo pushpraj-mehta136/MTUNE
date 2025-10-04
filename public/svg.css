@@ -1,0 +1,46 @@
+.loading, .error {
+    text-align: center;
+    padding: 3rem;
+    font-size: 0; /* Hide the text message by default */
+    color: var(--text-secondary);
+    width: 100%;
+    animation: fadeIn 0.5s ease;
+    position: relative; /* Needed for pseudo-element */
+    min-height: 120px; /* Ensure space for the loader */
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.loading::before {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 100px; /* Adjust size as needed */
+    height: 100px; /* Adjust size as needed */
+    transform: translate(-50%, -50%);
+    background-repeat: no-repeat;
+    background-size: contain;
+    background-position: center;
+}
+
+/* Default loader (Style 1) */
+.loading::before {
+    background-image: url('/loaders/loader-1.svg');
+}
+
+/* Optional loader 2 */
+.loading.loading-2::before {
+    background-image: url('/loaders/loader-2.svg');
+}
+
+/* Optional loader 3 */
+.loading.loading-3::before {
+    background-image: url('/loaders/loader-3.svg');
+}
+
+/* Optional loader 4 */
+.loading.loading-4::before {
+    background-image: url('/loaders/loader-4.svg');
+}

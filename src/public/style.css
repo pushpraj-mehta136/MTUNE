@@ -25,6 +25,14 @@
   --transition: all 0.3s ease;
 }
 
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
 @keyframes fadeIn {
   from {
     opacity: 0;
@@ -243,6 +251,7 @@ html, body {
   min-width: 0; /* Prevents flex items from expanding the container */
   box-shadow: var(--glass-shadow);
   height: calc(100vh - 30px);
+  position: relative; /* Needed for pull-to-refresh */
 }
 
 /* Custom Scrollbar for Main Content */
@@ -1623,6 +1632,7 @@ input:checked + .slider:before {
     .main-content {
         order: 1;
         /* Padding for player and bottom nav */
+        padding-top: 0; /* Remove top padding for pull-to-refresh */
         padding: 1rem 1.5rem calc(82px + 75px) 1.5rem; /* Adjusted for new player height */
     }
     .song-list { max-height: none; }
@@ -1705,6 +1715,7 @@ input:checked + .slider:before {
     h2 { font-size: 1.4rem; }
     .main-content {
         padding-left: 1rem;
+        padding-top: 0;
         padding-right: 1rem; 
         /* Adjust bottom padding for player and nav bar */
         padding-bottom: calc(72px + 65px + 20px);
@@ -1735,6 +1746,43 @@ input:checked + .slider:before {
     .settings-option {
         flex-direction: column;
         align-items: flex-start;
+        gap: 0.5rem;
+    }
+    .settings-option div {
+        width: 100%;
+    }
+    .settings-option .toggle-switch {
+        align-self: flex-end;
+    }
+    .pull-to-refresh {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        position: absolute;
+        top: -50px; /* Start hidden above the viewport */
+        left: 0;
+        right: 0;
+        height: 50px;
+        color: var(--accent);
+        font-size: 1.5rem;
+        z-index: 0;
+    }
+    .pull-to-refresh-icon i {
+        transition: transform 0.3s ease;
+    }
+    .pull-to-refresh.pulling .pull-to-refresh-icon i {
+        transform: rotate(180deg);
+    }
+    .pull-to-refresh.refreshing .pull-to-refresh-icon i {
+        animation: spin 1s linear infinite;
+        -webkit-animation: spin 1s linear infinite;
+    }
+    .main-content.refreshing {
+        transition: transform 0.3s ease;
+        transform: translateY(50px);
+    }
+    .main-content.returning {
+        transition: transform 0.3s ease;
         gap: 1rem;
     }
     .settings-layout {

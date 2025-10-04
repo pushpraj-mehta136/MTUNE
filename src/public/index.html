@@ -1,0 +1,512 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>MTUNE</title>
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/7.0.0/css/all.min.css" rel="stylesheet"/>
+  <link rel="icon" href="favicon.ico" type="image/x-icon">
+  <link rel="stylesheet" href="style.css" />
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/color-thief/2.3.2/color-thief.umd.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/id3-writer@1/dist/browser.min.js"></script>
+</head>
+<body class="dark">
+  <div id="app-background" class="app-background"></div>
+  <div id="notification-container"></div>
+  <div id="app" class="app-container">
+    <aside class="sidebar">
+      <div class="sidebar-header">
+        <img src="/logo.png" alt="MTUNE Logo" class="app-logo">
+      </div>
+      <nav id="mainNav" class="nav-list">
+        <button class="nav-btn active" onclick="showSection('discover')" data-section="discover"><i class="fas fa-home"></i> Discover</button>
+        <button class="nav-btn" onclick="showSection('search')" data-section="search"><i class="fas fa-search"></i> Search</button>
+        <button class="nav-btn" onclick="showSection('library')" data-section="library"><i class="fas fa-book"></i> Library</button>
+        <button class="nav-btn" onclick="showSection('history')" data-section="history"><i class="fas fa-history"></i> History</button>
+        <!-- Timeline removed for a cleaner mobile nav, can be re-added if needed -->
+        <button class="nav-btn" onclick="showSection('settings')" data-section="settings"><i class="fas fa-cog"></i> Settings</button>
+      </nav>
+    </aside>
+    <main class="main-content">
+      <div id="pull-to-refresh" class="pull-to-refresh">
+        <div class="pull-to-refresh-icon">
+          <i class="fas fa-arrow-down"></i>
+        </div>
+      </div>
+
+      <section id="discover" class="content-section active">
+        <div class="discover-header">
+          <img src="/logo.png" alt="MTUNE Logo" class="app-logo-mobile">
+          <h1>Discover</h1>
+        </div>
+        <section>
+          <h2>Recommended Songs</h2>
+          <div class="grid-container scrollable-row" id="recommendedSongs">
+            <!-- Recommended songs will be loaded here -->
+          </div>
+        </section>
+        
+        <section>
+          <h2>Recommended Albums</h2>
+          <div class="grid-container scrollable-row" id="recommendedAlbums">
+            <!-- Recommended albums will be loaded here -->
+          </div>
+        </section>
+        
+        <section>
+          <h2>Recommended Playlists</h2>
+          <div class="grid-container scrollable-row" id="recommendedPlaylists">
+            <!-- Recommended playlists will be loaded here -->
+          </div>
+        </section>
+        
+        <section>
+          <h2>Recommended Artists</h2>
+          <div class="grid-container scrollable-row" id="recommendedArtists">
+            <!-- Recommended artists will be loaded here -->
+          </div>
+        </section>
+      </section>
+
+      <section id="search" class="content-section">
+        <div class="search-header">
+          <h1>Search</h1>
+          <header id="mainSearchBar" class="search-bar">
+            <div class="search-input-container">
+              <input type="search" id="searchBar" placeholder="What do you want to listen to?" aria-label="Search music" autocomplete="off" />
+              <div id="searchSuggestions" class="search-suggestions"></div>
+            </div>
+            <button title="Search" onclick="triggerSearch()"><i class="fas fa-search"></i></button>
+          </header>
+        </div>
+        <div id="searchResultsContainer" class="search-results-wrapper">
+          <section class="horizontal-section">
+            <div class="section-header">
+              <h2>Songs</h2>
+              <button class="view-all-btn" onclick="MTUNE.navigation.showAllCategory('songs')">View All</button>
+            </div>
+            <div id="songList" class="grid-container scrollable-row"></div>
+          </section>
+          <section class="horizontal-section">
+            <div class="section-header">
+              <h2>Albums</h2>
+              <button class="view-all-btn" onclick="MTUNE.navigation.showAllCategory('albums')">View All</button>
+            </div>
+            <div id="albumSearchResults" class="grid-container scrollable-row"></div>
+          </section>
+          <section class="horizontal-section">
+            <div class="section-header">
+              <h2>Playlists</h2>
+              <button class="view-all-btn" onclick="MTUNE.navigation.showAllCategory('playlists')">View All</button>
+            </div>
+            <div id="playlistSearchResults" class="grid-container scrollable-row"></div>
+          </section>
+          <section class="horizontal-section">
+            <div class="section-header">
+              <h2>Artists</h2>
+              <button class="view-all-btn" onclick="MTUNE.navigation.showAllCategory('artists')">View All</button>
+            </div>
+            <div id="artistSearchResults" class="grid-container scrollable-row"></div>
+          </section>
+        </div>
+      </section>
+
+      <section id="search-songs-all" class="content-section">
+        <div class="details-page-wrapper">
+          <button class="details-back-btn" onclick="MTUNE.navigation.goBack()"><i class="fas fa-arrow-left"></i></button>
+          <div class="section-header">
+            <h1 id="allSongsHeader">Song Results</h1>
+            <div class="sort-controls">
+              <label for="songSort">Sort by:</label>
+              <select id="songSort" onchange="MTUNE.utils.sortSongList('allSongsList')">
+                <option value="default">Default</option>
+                <option value="name">Name</option>
+                <option value="duration">Duration</option>
+              </select>
+              <button id="sortDirBtn" class="sort-dir-btn" onclick="MTUNE.utils.toggleSortDirection()" title="Toggle Sort Direction">
+                <i class="fas fa-arrow-down-a-z"></i>
+              </button>
+            </div>
+          </div>
+          <div id="allSongsList" class="song-list"></div>
+        </div>
+      </section>
+
+      <section id="search-albums-all" class="content-section">
+        <div class="details-page-wrapper">
+          <button class="details-back-btn" onclick="MTUNE.navigation.goBack()"><i class="fas fa-arrow-left"></i></button>
+          <h1 id="allAlbumsHeader">Album Results</h1>
+          <div id="allAlbumsGrid" class="search-grid"></div>
+        </div>
+      </section>
+
+      <section id="search-playlists-all" class="content-section">
+        <div class="details-page-wrapper">
+          <button class="details-back-btn" onclick="MTUNE.navigation.goBack()"><i class="fas fa-arrow-left"></i></button>
+          <h1 id="allPlaylistsHeader">Playlist Results</h1>
+          <div id="allPlaylistsGrid" class="search-grid"></div>
+        </div>
+      </section>
+
+      <section id="search-artists-all" class="content-section">
+        <div class="details-page-wrapper">
+          <button class="details-back-btn" onclick="MTUNE.navigation.goBack()"><i class="fas fa-arrow-left"></i></button>
+          <h1 id="allArtistsHeader">Artist Results</h1>
+          <div id="allArtistsGrid" class="search-grid"></div>
+        </div>
+      </section>
+
+      <section id="library" class="content-section">
+        <h1>My Library</h1>
+        <div class="library-quick-access">
+            <div class="library-item" onclick="showSection('downloads')">
+                <i class="fas fa-download"></i>
+                <span>Downloads</span>
+            </div>
+            <div class="library-item" onclick="showSection('favourites')">
+                <i class="fas fa-heart"></i>
+                <span>Favourite Songs</span>
+            </div>
+            <div class="library-item" onclick="showSection('saved-playlists')">
+                <i class="fas fa-bookmark"></i>
+                <span>Saved Playlists</span>
+            </div>
+        </div>
+        <h2>My Playlists</h2>
+        <div id="userPlaylists" class="grid-container scrollable-row">
+        </div>
+      </section>
+
+      <section id="saved-playlists" class="content-section">
+        <div class="details-page-wrapper">
+          <button class="details-back-btn" onclick="MTUNE.navigation.goBack()"><i class="fas fa-arrow-left"></i></button>
+          <h1><i class="fas fa-bookmark" style="color: var(--accent);"></i> Saved Playlists</h1>
+          <div id="savedPlaylistsContainer" class="album-grid"></div>
+        </div>
+      </section>
+
+      <section id="favourites" class="content-section">
+        <div class="details-page-wrapper">
+          <button class="details-back-btn" onclick="MTUNE.navigation.goBack()"><i class="fas fa-arrow-left"></i></button>
+          <h1><i class="fas fa-heart" style="color: var(--accent);"></i> Favourite Songs</h1>
+          <div class="contextual-search-bar">
+            <i class="fas fa-search"></i>
+            <input type="search" oninput="filterSongList(this.value, 'favouriteSongsList')" placeholder="Filter favourite songs...">
+          </div>
+          <div id="favouriteSongsList" class="song-list"></div>
+        </div>
+      </section>
+
+      <section id="downloads" class="content-section">
+        <div class="details-page-wrapper">
+          <button class="details-back-btn" onclick="MTUNE.navigation.goBack()"><i class="fas fa-arrow-left"></i></button>
+          <h1><i class="fas fa-download"></i> Downloads</h1>
+          <div class="contextual-search-bar">
+            <i class="fas fa-search"></i>
+            <input type="search" placeholder="Filter downloads..." disabled>
+          </div>
+          <div class="loading">Downloads feature is coming soon!</div>
+        </div>
+      </section>
+
+      <section id="playlist-details" class="content-section">
+        <div class="details-page-wrapper">
+          <button class="details-back-btn" onclick="MTUNE.navigation.goBack()"><i class="fas fa-arrow-left"></i></button>
+          <div id="playlistDetailsHeader"></div>
+          <div class="contextual-search-bar">
+            <i class="fas fa-search"></i>
+            <input type="search" oninput="filterSongList(this.value, 'playlistSongs')" placeholder="Search in playlist...">
+          </div>
+          <div id="playlistSongs" class="song-list"></div>
+        </div>
+      </section>
+
+      <section id="album-details" class="content-section">
+        <div class="details-page-wrapper">
+          <button class="details-back-btn" onclick="MTUNE.navigation.goBack()"><i class="fas fa-arrow-left"></i></button>
+          <div id="albumDetailsHeader"></div>
+          <div class="contextual-search-bar">
+            <i class="fas fa-search"></i>
+            <input type="search" oninput="filterSongList(this.value, 'albumSongs')" placeholder="Search in album...">
+          </div>
+          <div id="albumSongs" class="song-list"></div>
+        </div>
+      </section>
+
+      <section id="artist-details" class="content-section">
+        <div class="details-page-wrapper">
+          <button class="details-back-btn" onclick="MTUNE.navigation.goBack()"><i class="fas fa-arrow-left"></i></button>
+          <div id="artistDetailsHeader"></div>
+          <h2>Top Songs</h2>
+          <div id="artistTopSongs" class="song-list"></div>
+        </div>
+      </section>
+
+      <section id="history" class="content-section">
+        <h1>History</h1>
+        <div class="contextual-search-bar">
+          <i class="fas fa-search"></i>
+          <input type="search" oninput="filterSongList(this.value, 'historyList')" placeholder="Filter history...">
+        </div>
+        <div id="historyList" class="song-list"></div>
+      </section>
+
+      <section id="timeline" class="content-section">
+        <h1>Timeline</h1>
+        <div id="timelineList" class="artist-list"></div>
+      </section>
+
+      <section id="settings" class="content-section">
+        <h1>Settings</h1>
+        <div class="settings-layout">
+          <div class="settings-nav">
+            <button class="settings-nav-item active" data-target="settings-appearance"><i class="fas fa-paint-brush"></i> Appearance</button>
+            <button class="settings-nav-item" data-target="settings-playback"><i class="fas fa-play-circle"></i> Playback</button>
+            <button class="settings-nav-item" data-target="settings-downloads"><i class="fas fa-download"></i> Downloads</button>
+            <button class="settings-nav-item" data-target="settings-data"><i class="fas fa-database"></i> Data Management</button>
+            <button class="settings-nav-item" data-target="settings-general"><i class="fas fa-cog"></i> General</button>
+            <button class="settings-nav-item" data-target="settings-about"><i class="fas fa-info-circle"></i> About</button>
+          </div>
+          <div class="settings-content">
+            <div id="settings-appearance" class="settings-pane active">
+              <h2>Appearance</h2>
+              <div class="settings-option">
+                <div><h3>Dynamic Buttons</h3><p>Player buttons change color with album art</p></div>
+                <label class="toggle-switch"><input type="checkbox" id="dynamicButtonsToggle" data-setting="dynamicButtons" checked><span class="slider"></span></label>
+              </div>
+              <div class="settings-option">
+                <div><h3>Dynamic Background</h3><p>App background changes color with album art</p></div>
+                <label class="toggle-switch"><input type="checkbox" id="dynamicBackgroundToggle" data-setting="dynamicBackground" checked><span class="slider"></span></label>
+              </div>
+            </div>
+
+            <div id="settings-playback" class="settings-pane">
+              <h2>Playback</h2>
+              <div class="settings-option">
+                <div><h3>Audio Quality</h3><p>Set your preferred audio quality</p></div>
+                <select id="audioQuality" class="settings-select">
+                  <option value="320kbps" selected>High (320kbps)</option>
+                  <option value="160kbps">Medium (160kbps)</option>
+                  <option value="128kbps">Standard (128kbps)</option>
+                </select>
+              </div>
+              <div class="settings-option">
+                <div><h3>Endless Queue</h3><p>Automatically add similar songs when your queue ends</p></div>
+                <label class="toggle-switch"><input type="checkbox" id="endlessQueueToggle" data-setting="endlessQueue" checked><span class="slider"></span></label>
+              </div>
+              <div class="settings-option">
+                <div><h3>Resume Playback</h3><p>Automatically resume the last played song on startup</p></div>
+                <label class="toggle-switch"><input type="checkbox" id="resumePlaybackToggle" data-setting="resumePlayback" checked><span class="slider"></span></label>
+              </div>
+              <div class="settings-option">
+                <div><h3>Crossfade</h3><p>Set a duration for smooth transitions between songs</p></div>
+                <select id="crossfadeDuration" class="settings-select">
+                  <option value="0" selected>Off</option>
+                  <option value="3">3 seconds</option>
+                  <option value="5">5 seconds</option>
+                  <option value="8">8 seconds</option>
+                </select>
+              </div>
+            </div>
+
+            <div id="settings-downloads" class="settings-pane">
+              <h2>Downloads</h2>
+              <div class="settings-option">
+                <div><h3>Download Location</h3><p>Choose where to save your music. Your browser will ask for permission.</p></div>
+                <button class="settings-btn" onclick="MTUNE.utils.selectDownloadFolder()"><i class="fas fa-folder-open"></i> Choose Folder</button>
+              </div>
+            </div>
+
+            <div id="settings-data" class="settings-pane">
+              <h2>Data Management</h2>
+              <div class="settings-option">
+                <div><h3>Clear Listening History</h3><p>This will permanently delete your listening history.</p></div>
+                <button class="settings-btn danger-btn" onclick="clearHistory()"><i class="fas fa-trash"></i> Clear History</button>
+              </div>
+              <div class="settings-option">
+                <div><h3>Clear Favourites</h3><p>This will permanently delete all your favourite songs.</p></div>
+                <button class="settings-btn danger-btn" onclick="clearFavourites()"><i class="fas fa-trash"></i> Clear Favourites</button>
+              </div>
+              <div class="settings-option">
+                <div><h3>Reset All Data</h3><p>This will delete all history, favourites, and playlists.</p></div>
+                <button class="settings-btn danger-btn reset-btn" onclick="clearAllData()"><i class="fas fa-exclamation-triangle"></i> Reset App</button>
+              </div>
+            </div>
+
+            <div id="settings-general" class="settings-pane">
+              <h2>General</h2>
+              <div class="settings-option">
+                <div><h3>Notifications</h3><p>Enable or disable app notifications</p></div>
+                <label class="toggle-switch">
+                  <input type="checkbox" id="notificationsToggle" data-setting="notifications" checked>
+                  <span class="slider"></span>
+                </label>
+              </div>
+            </div>
+
+            <div id="settings-about" class="settings-pane">
+              <h2>About MTUNE</h2>
+              <div class="about-section">
+                <img src="/logo.png" alt="MTUNE Logo" class="about-logo">
+                <h3>MTUNE Music Player</h3>
+                <p>Version 1.0.0</p>
+                <p>Your personal gateway to the world of music, built with passion and modern web technologies.</p>
+                <div class="about-links">
+
+                  <a href="https://pushprajmehta.cc.cc/" target="_blank" rel="noopener noreferrer" class="contact-link"><i class="fas fa-globe"></i> Contact</a>
+
+                </div>
+                <div class="creator-info">
+                  <p>Created by Pushpraj Mehta</p>
+                  <p class="last-updated">Last Updated: <span id="lastUpdatedDate"></span></p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <footer class="bottom-player">
+      <div class="player-song-info" onclick="MTUNE.navigation.toggleNowPlayingView(true)">
+          <img id="currentSongImg" alt="Album Art" src="/default_cover.jpg"/>
+          <div class="player-text">
+            <div id="currentSongTitle"><span>No song playing</span></div>
+            <div id="currentSongArtist"></div>
+          </div>
+          <button id="likeBtn" class="player-like-btn" onclick="likeCurrentSong()" title="Add to Favourites"><i class="far fa-heart"></i></button>
+      </div>
+      <div class="player-center-section">
+          <div class="player-controls">
+            <button onclick="toggleShuffle()" id="shuffleBtn" title="Shuffle Off"><i class="fas fa-shuffle"></i></button>
+            <button class="prev-btn" onclick="prevSong()" id="prevBtn" title="Previous"><i class="fas fa-backward-step"></i></button>
+            <button class="play-btn" onclick="togglePlayPause()" id="playPauseBtn" title="Play/Pause"><i id="playPauseIcon" class="fas fa-play"></i></button>
+            <button class="next-btn" onclick="nextSong()" id="nextBtn" title="Next"><i class="fas fa-forward-step"></i></button>
+            <button onclick="toggleRepeat()" id="repeatBtn" title="Repeat Off"><i id="repeatIcon" class="fas fa-repeat"></i></button>
+          </div>
+          <div class="progress-container">
+              <span id="currentTime">0:00</span>
+              <input id="progressBar" type="range" min="0" max="100" value="0" aria-label="Playback progress" />
+              <span id="totalDuration">0:00</span>
+          </div>
+      </div>
+      <div class="player-mobile-controls">
+          <button class="play-btn" onclick="togglePlayPause()"><i id="mobilePlayPauseIcon" class="fas fa-play"></i></button>
+      </div>
+      <div class="player-right-controls">
+        <div class="volume-control">
+          <i id="volumeIcon" class="fas fa-volume-high"></i>
+          <input id="volumeSlider" type="range" min="0" max="1" step="0.01" value="1" aria-label="Volume control" />
+        </div>
+      </div>
+      <div id="mobile-progress-bar" class="mobile-progress-bar"></div>
+      <audio id="audioPlayer"></audio>
+    </footer>
+  </div>
+
+  <!-- Expanded Now Playing View -->
+  <div id="nowPlayingView" class="now-playing-view">
+    <div class="now-playing-bg"></div>
+    <div class="now-playing-content">
+      <button class="collapse-btn" onclick="MTUNE.navigation.toggleNowPlayingView(false)"><i class="fas fa-chevron-down"></i></button>
+      <button id="nowPlayingOptionsBtn" class="player-options-btn" onclick="showCurrentSongOptions(event)" title="More Options"><i class="fas fa-ellipsis-v"></i></button>
+      
+      
+      <div class="now-playing-art">
+        <img id="nowPlayingImg" src="/default_cover.jpg" alt="Album Art"/>
+      </div>
+
+      <div class="now-playing-info">
+        <div class="now-playing-info-text">
+          <h2 id="nowPlayingTitle">No song playing</h2>
+          <p id="nowPlayingArtist">Select a song to start</p>
+        </div>
+        <button id="nowPlayingLikeBtn" class="player-like-btn" onclick="likeCurrentSong()" title="Add to Favourites"><i class="far fa-heart"></i></button>
+      </div>
+
+      <div class="now-playing-progress">
+        <span id="nowPlayingCurrentTime">0:00</span>
+        <input id="nowPlayingProgressBar" type="range" min="0" max="100" value="0" aria-label="Playback progress" />
+        <span id="nowPlayingTotalDuration">0:00</span>
+      </div>
+
+      <div class="now-playing-controls">
+        <button onclick="toggleShuffle()" id="nowPlayingShuffleBtn" title="Shuffle Off"><i class="fas fa-shuffle"></i></button>
+        <button class="prev-btn" onclick="prevSong()" id="nowPlayingPrevBtn" title="Previous"><i class="fas fa-backward-step"></i></button>
+        <button class="play-btn" onclick="togglePlayPause()" id="nowPlayingPlayPauseBtn" title="Play/Pause"><i id="nowPlayingPlayPauseIcon" class="fas fa-play"></i></button>
+        <button class="next-btn" onclick="nextSong()" id="nowPlayingNextBtn" title="Next"><i class="fas fa-forward-step"></i></button>
+        <button onclick="toggleRepeat()" id="nowPlayingRepeatBtn" title="Repeat Off"><i id="nowPlayingRepeatIcon" class="fas fa-repeat"></i></button>
+      </div>
+
+      <div class="now-playing-extra-controls">
+        <div class="volume-control">
+          <i id="nowPlayingVolumeIcon" class="fas fa-volume-high"></i>
+          <input id="nowPlayingVolumeSlider" type="range" min="0" max="1" step="0.01" value="1" aria-label="Volume control" />
+        </div>
+        <div class="now-playing-actions">
+          <button title="Show Queue" onclick="MTUNE.navigation.toggleQueueView(true)"><i class="fas fa-list-ol"></i></button>
+          <button title="Show Lyrics" onclick="MTUNE.navigation.toggleLyrics(true)"><i class="fas fa-align-left"></i></button>
+          <div class="sleep-timer-container">
+            <button id="sleepTimerBtn" title="Sleep Timer"><i class="fas fa-moon"></i></button>
+            <div id="sleepTimerOptions" class="sleep-timer-options">
+              <div id="sleepTimerDisplay"></div>
+              <button data-minutes="15">15 min</button>
+              <button data-minutes="30">30 min</button>
+              <button data-minutes="60">60 min</button>
+              <button data-minutes="0">Cancel</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div id="lyricsContainer" class="lyrics-container">
+        <button class="collapse-btn" onclick="MTUNE.navigation.toggleLyrics(false)"><i class="fas fa-times"></i></button>
+        <h2>Lyrics</h2>
+        <div id="lyricsContent" class="lyrics-content">Lyrics are not available for this song.</div>
+    </div>
+    <div id="queueContainer" class="queue-container">
+        <div class="queue-header">
+          <h2>Up Next</h2>
+          <button class="collapse-btn" onclick="MTUNE.navigation.toggleQueueView(false)"><i class="fas fa-times"></i></button>
+          <div class="contextual-search-bar queue-search-bar">
+            <i class="fas fa-search"></i>
+            <input type="search" oninput="filterSongList(this.value, 'queueList')" placeholder="Filter queue...">
+          </div>
+          <button class="clear-queue-btn" onclick="MTUNE.utils.clearQueue()">Clear Queue</button>
+        </div>
+        <div class="now-playing-in-queue">
+          <h4>Now Playing</h4>
+          <div id="queueNowPlaying">
+          </div>
+        </div>
+        <div id="queueList" class="song-list"></div>
+    </div>
+  </div>
+
+  <!-- Bottom Sheet Context Menu -->
+  <div id="bottomSheet" class="bottom-sheet">
+    <div class="bottom-sheet-overlay" onclick="MTUNE.utils.hideBottomSheet()"></div>
+    <div class="bottom-sheet-content">
+      <!-- Menu items will be injected here -->
+    </div>
+  </div>
+
+  <!-- Add to Playlist Modal -->
+  <div id="playlistModal" class="modal-overlay" style="display: none;">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h2>Add to Playlist</h2>
+        <button class="modal-close-btn" onclick="MTUNE.utils.hidePlaylistModal()"><i class="fas fa-times"></i></button>
+      </div>
+      <div class="modal-body">
+        <button class="create-playlist-btn-modal" onclick="MTUNE.utils.createNewPlaylistFromModal()"><i class="fas fa-plus"></i> Create New Playlist</button>
+        <ul id="modalPlaylistList" class="modal-playlist-list">
+          <!-- User playlists will be injected here -->
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
