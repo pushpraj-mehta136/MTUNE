@@ -97,6 +97,10 @@ const MTUNE = {
       artistSearchResults: document.getElementById('artistSearchResults'),
       userPlaylists: document.getElementById('userPlaylists'),
       historyList: document.getElementById('historyList'),
+      allSongsList: document.getElementById('allSongsList'),
+      allAlbumsGrid: document.getElementById('allAlbumsGrid'),
+      allPlaylistsGrid: document.getElementById('allPlaylistsGrid'),
+      allArtistsGrid: document.getElementById('allArtistsGrid'), // This was correct
       savedPlaylistsContainer: document.getElementById('savedPlaylistsContainer'),
       favouriteSongsList: document.getElementById('favouriteSongsList'),
       likeBtn: document.getElementById('likeBtn'),
@@ -168,6 +172,7 @@ const MTUNE = {
     this.ui.searchBar.addEventListener('input', () => this.utils.debounce(this.navigation.showSearchSuggestions.bind(this.navigation), 300)());
     document.addEventListener('click', (e) => { if (!e.target.closest('.search-input-container')) this.ui.searchSuggestions.classList.remove('active'); });
     window.addEventListener('beforeunload', () => this.utils.savePlaybackState());
+    this.ui.mainContent.addEventListener('scroll', (e) => this.utils.handleInfiniteScroll(e));
     this.ui.volumeSlider.addEventListener('input', (e) => this.player.setVolume(e.target.value));
     this.ui.nowPlayingVolumeSlider.addEventListener('input', (e) => this.player.setVolume(e.target.value));
     this.utils.setupSleepTimer();
@@ -202,7 +207,6 @@ const MTUNE = {
     // Use event delegation for marquee effect and infinite scroll
     this.ui.mainContent.addEventListener('mouseover', this.utils.handleMarquee);
     this.ui.mainContent.addEventListener('mouseout', this.utils.handleMarquee);
-    this.ui.mainContent.addEventListener('scroll', this.utils.handleInfiniteScroll);
     // Add ripple effect to all buttons
     this.utils.addQueueDragHandlers();
     this.utils.addQueueInteractionHandlers();
@@ -287,6 +291,12 @@ const MTUNE = {
       div.className = 'song';
 
       div.dataset.type = 'song';
+      // Add a click handler to the entire card to play the song
+      div.onclick = (event) => {
+        // Ensure we don't trigger this if a button inside the card was clicked
+        if (event.target.closest('button')) return;
+        MTUNE.player.playSongFromCard(event, song.id);
+      };
       div.dataset.id = song.id;
       div.dataset.songId = song.id;
       const img = document.createElement('img');
@@ -652,13 +662,6 @@ const MTUNE = {
       MTUNE.ui.nowPlayingTitle.textContent = title;
       MTUNE.ui.nowPlayingArtist.textContent = MTUNE.render._decode(song.primaryArtists || song.artists?.primary?.map(a => a.name).join(', ') || 'Unknown Artist');
       document.querySelector('.now-playing-bg').style.backgroundImage = `url(${MTUNE.render._getImageUrl(song.image)})`;
-
-      // Highlight current song in queue view
-      // Remove highlight from any currently highlighted song across the app
-      document.querySelectorAll('.song.is-playing').forEach(el => el.classList.remove('is-playing'));
-      // Add highlight to the new current song in any visible list
-      const currentQueueItem = document.querySelector(`.song[data-song-id="${song.id}"]`);
-      if (currentQueueItem) currentQueueItem.classList.add('is-playing');
     },
     updateMediaSession(song) {
         if ('mediaSession' in navigator) {
@@ -889,6 +892,13 @@ const MTUNE = {
         'downloads': () => {}, // Placeholder
         'history': MTUNE.navigation.loadHistory,
         'timeline': MTUNE.navigation.loadTimeline,
+        // Add handlers for the new "View All" pages, but they don't need to load anything initially
+        'search-songs-all': () => {},
+        'search-albums-all': () => {},
+        'search-playlists-all': () => {},
+        'search-artists-all': () => {},
+        'search-artists-all': () => {},
+
       }[sectionId];
 
       const newSection = document.getElementById(sectionId);
@@ -906,7 +916,10 @@ const MTUNE = {
         // If we are in a detail view, go back to the previous main section.
         const current = MTUNE.state.navigation.currentSection;
         if (current.includes('-details')) {
-            this.showSection(MTUNE.state.navigation.previousSection || 'discover');
+            this.showSection(MTUNE.state.navigation.previousSection || 'discover'); 
+        } else if (current.startsWith('search-') && current.endsWith('-all')) {
+            // If in a "View All" search page, go back to the main search results
+            this.showSection('search');
         } else if (['favourites', 'saved-playlists', 'downloads'].includes(current)) {
             // If in a library sub-section, go back to the main library view
             this.showSection('library');
@@ -1020,8 +1033,13 @@ const MTUNE = {
       const { search } = MTUNE.state;
       const { songList, albumSearchResults, playlistSearchResults, artistSearchResults } = MTUNE.ui;
       const query = MTUNE.ui.searchBar.value.trim();
+      const isViewAllPage = MTUNE.state.navigation.currentSection.startsWith('search-') && MTUNE.state.navigation.currentSection.endsWith('-all');
+      const category = isViewAllPage ? MTUNE.state.navigation.currentSection.split('-')[1] : null;
+
+      if (isViewAllPage && !category) return; // Should not happen
 
       if (search.isLoading || !query) {
+        // If search is triggered with no query, reset the view
         if (isNewSearch) {
             search.songs = { currentPage: 1, results: [], total: 0 };
             search.albums = { currentPage: 1, results: [], total: 0 };
@@ -1035,6 +1053,7 @@ const MTUNE = {
       }
 
       if (isNewSearch) {
+        // Reset state for a new search
         search.query = query;
         search.songs = { currentPage: 1, results: [], total: 0 };
         search.albums = { currentPage: 1, results: [], total: 0 };
@@ -1056,13 +1075,26 @@ const MTUNE = {
 
       search.isLoading = true;
 
-      // Increase the limit to fetch more results initially
-      const songData = await MTUNE.api._fetch(`/search/songs?query=${search.query}&page=${search.songs.currentPage}&limit=50`);
-      const albumData = await MTUNE.api._fetch(`/search/albums?query=${search.query}&page=${search.albums.currentPage}&limit=24`);
-      const playlistData = await MTUNE.api._fetch(`/search/playlists?query=${search.query}&page=${search.playlists.currentPage}&limit=24`);
-      const artistData = await MTUNE.api._fetch(`/search/artists?query=${search.query}&page=${search.artists.currentPage}&limit=24`);
+      let songData, albumData, playlistData, artistData;
 
-      if (isNewSearch) {
+      if (isViewAllPage) {
+        // Fetch only the specific category for the "View All" page
+        const page = search[category].currentPage;
+        const data = await MTUNE.api._fetch(`/search/${category}?query=${encodeURIComponent(search.query)}&page=${page}&limit=50`);
+        if (category === 'songs') songData = data;
+        if (category === 'albums') albumData = data;
+        if (category === 'playlists') playlistData = data;
+        if (category === 'artists') artistData = data;
+      } else {
+        // Fetch all categories in parallel for the main search page
+        [songData, albumData, playlistData, artistData] = await Promise.all([
+          MTUNE.api._fetch(`/search/songs?query=${encodeURIComponent(search.query)}&page=${search.songs.currentPage}&limit=50`),
+          MTUNE.api._fetch(`/search/albums?query=${encodeURIComponent(search.query)}&page=${search.albums.currentPage}&limit=24`),
+          MTUNE.api._fetch(`/search/playlists?query=${encodeURIComponent(search.query)}&page=${search.playlists.currentPage}&limit=24`),
+          MTUNE.api._fetch(`/search/artists?query=${encodeURIComponent(search.query)}&page=${search.artists.currentPage}&limit=24`)
+        ]);
+      }
+      if (isNewSearch && !isViewAllPage) {
           // Populate songs
           search.songs.results = songData?.data?.results || [];
           search.songs.total = songData?.data?.total || 0;
@@ -1084,23 +1116,31 @@ const MTUNE = {
           search.artists.total = artistData?.data?.total || 0;
           MTUNE.render.populate(artistSearchResults, search.artists.results, MTUNE.render.timelineCard, 'No artists found.', 'Artist search failed.');
       } else { // This block is for infinite scroll
-          if (songData?.data?.results) {
-              search.songs.results.push(...songData.data.results);
-              MTUNE.state.songQueue.push(...songData.data.results);
-              MTUNE.render.append(songList, songData.data.results, MTUNE.render.discoverCard);
-          }
-          if (albumData?.data?.results) {
-              search.albums.results.push(...albumData.data.results);
-              MTUNE.render.append(albumSearchResults, albumData.data.results, MTUNE.render.discoverCard);
-          }
-          if (playlistData?.data?.results) {
-              search.playlists.results.push(...playlistData.data.results);
-              MTUNE.render.append(playlistSearchResults, playlistData.data.results, MTUNE.render.discoverCard);
-          }
-          if (artistData?.data?.results) {
-              search.artists.results.push(...artistData.data.results);
-              MTUNE.render.append(artistSearchResults, artistData.data.results, MTUNE.render.timelineCard);
-          }
+        const appendResults = (data, category, container, renderer) => {
+            if (data?.data?.results) {
+                search[category].results.push(...data.data.results);
+                if (category === 'songs') {
+                    MTUNE.state.songQueue.push(...data.data.results);
+                }
+                MTUNE.render.append(container, data.data.results, renderer);
+            }
+        };
+
+        if (isViewAllPage) {
+            const renderMap = {
+                songs: { container: MTUNE.ui.allSongsList, renderer: MTUNE.render.songCard },
+                albums: { container: MTUNE.ui.allAlbumsGrid, renderer: MTUNE.render.discoverCard },
+                playlists: { container: MTUNE.ui.allPlaylistsGrid, renderer: MTUNE.render.discoverCard },
+                artists: { container: MTUNE.ui.allArtistsGrid, renderer: MTUNE.render.timelineCard }
+            };
+            const currentData = { songs: songData, albums: albumData, playlists: playlistData, artists: artistData }[category];
+            appendResults(currentData, category, renderMap[category].container, renderMap[category].renderer);
+        } else {
+            appendResults(songData, 'songs', songList, MTUNE.render.discoverCard);
+            appendResults(albumData, 'albums', albumSearchResults, MTUNE.render.discoverCard);
+            appendResults(playlistData, 'playlists', playlistSearchResults, MTUNE.render.discoverCard);
+            appendResults(artistData, 'artists', artistSearchResults, MTUNE.render.timelineCard);
+        }
       }
 
       search.songs.currentPage++;
@@ -1108,6 +1148,38 @@ const MTUNE = {
       search.playlists.currentPage++;
       search.artists.currentPage++;
       search.isLoading = false;
+    },
+
+    showAllCategory(category) {
+        const { search } = MTUNE.state;
+        const sectionId = `search-${category}-all`;
+        this.showSection(sectionId);
+
+        const renderMap = {
+            songs: { container: MTUNE.ui.allSongsList, renderer: MTUNE.render.songCard, header: MTUNE.ui.allSongsHeader },
+            albums: { container: MTUNE.ui.allAlbumsGrid, renderer: MTUNE.render.discoverCard, header: MTUNE.ui.allAlbumsHeader },
+            playlists: { container: MTUNE.ui.allPlaylistsGrid, renderer: MTUNE.render.discoverCard, header: MTUNE.ui.allPlaylistsHeader },
+            artists: { container: MTUNE.ui.allArtistsGrid, renderer: MTUNE.render.timelineCard, header: MTUNE.ui.allArtistsHeader }
+        };
+
+        const { container, renderer, header } = renderMap[category];
+        const results = search[category].results;
+
+        if (header) {
+            header.textContent = `${category.charAt(0).toUpperCase() + category.slice(1)} for "${search.query}"`;
+        }
+
+        MTUNE.render.populate(
+            container,
+            results,
+            renderer,
+            `No ${category} found.`,
+            `Failed to load ${category}.`
+        );
+
+        // Reset sort dropdown to default when showing the page
+        const songSort = document.getElementById('songSort');
+        if (songSort) songSort.value = 'default';
     },
 
     async showSearchSuggestions() {
@@ -1613,12 +1685,34 @@ const MTUNE = {
         }, { passive: true });
     },
     handleInfiniteScroll(event) {
-        const element = event.target;
-        const { search, navigation } = MTUNE.state;
-        // Trigger when user is 250px from the bottom
-        if (navigation.currentSection === 'search' && !search.isLoading && element.scrollHeight - element.scrollTop - element.clientHeight < 250) {
-            MTUNE.navigation.search(false);
-        }
+      const element = event.target;
+      const { search, navigation } = MTUNE.state;
+      const isSearchPage = navigation.currentSection === 'search' || (navigation.currentSection.startsWith('search-') && navigation.currentSection.endsWith('-all'));
+
+      // Trigger when user is 350px from the bottom
+      if (isSearchPage && !search.isLoading && element.scrollHeight - element.scrollTop - element.clientHeight < 350) {
+          const category = navigation.currentSection.startsWith('search-') ? navigation.currentSection.split('-')[1] : null;
+          
+          let container;
+          if (category) {
+              const containerMap = {
+                  songs: MTUNE.ui.allSongsList,
+                  albums: MTUNE.ui.allAlbumsGrid,
+                  playlists: MTUNE.ui.allPlaylistsGrid,
+                  artists: MTUNE.ui.allArtistsGrid
+              };
+              container = containerMap[category];
+          } else {
+              // On the main search page, we might want to load all, or just one.
+              // For simplicity, let's assume we load all. We'll add the indicator to the main wrapper.
+              container = document.getElementById('searchResultsContainer');
+          }
+
+          if (container && !container.querySelector('.loading-more')) {
+              container.insertAdjacentHTML('beforeend', '<div class="loading-more">Loading more...</div>');
+          }
+          MTUNE.navigation.search(false);
+      }
     },
     handleMarquee(event) {
         const container = event.target.closest('.song strong, .playlist strong, .album strong, .artist strong, #currentSongTitle strong, #nowPlayingTitle');
@@ -2490,6 +2584,31 @@ const MTUNE = {
             localStorage.removeItem('musify_userPlaylists');
             window.location.reload();
         }
+    },
+    sortSongList(containerId, sortBy) {
+        const container = document.getElementById(containerId);
+        if (!container) return;
+
+        const songs = Array.from(container.querySelectorAll('.song'));
+        
+        songs.sort((a, b) => {
+            const songA = MTUNE.state.songQueue.find(s => s.id === a.dataset.songId);
+            const songB = MTUNE.state.songQueue.find(s => s.id === b.dataset.songId);
+
+            if (!songA || !songB) return 0;
+
+            if (sortBy === 'name') {
+                const nameA = (songA.name || songA.title).toLowerCase();
+                const nameB = (songB.name || songB.title).toLowerCase();
+                return nameA.localeCompare(nameB);
+            } else if (sortBy === 'duration') {
+                return (songA.duration || 0) - (songB.duration || 0);
+            }
+            return 0; // 'default' does not re-sort, keeps original API order
+        });
+
+        container.innerHTML = '';
+        songs.forEach(songEl => container.appendChild(songEl));
     },
   }
 };

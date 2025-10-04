@@ -7,9 +7,9 @@
   --primary-light-default: #161b22;
   --primary-dark: #010409; /* Deep dark for background */
   --primary-dark-default: #010409;
-  --accent: #f00a30;
-  --accent-rgb: 240, 10, 48;
-  --accent-light: #f35470;
+  --accent: #3498db;
+  --accent-rgb: 52, 152, 219;
+  --accent-light: #85c1e9;
   --text-primary: #e6edf3; /* Brighter text */
   --text-secondary: #8b949e;
   --surface: rgba(22, 27, 34, 0.6);
@@ -456,6 +456,29 @@ h2 {
   color: var(--text-primary);
 }
 
+.section-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1rem;
+}
+
+.section-header h2 {
+  margin-bottom: 0;
+}
+
+.view-all-btn {
+  background: none;
+  border: none;
+  color: var(--accent);
+  font-weight: 600;
+  cursor: pointer;
+  font-size: 0.9rem;
+  padding: 0.5rem;
+  border-radius: var(--element-radius);
+  transition: var(--transition);
+}
+
 /* Scrollable row */
 .scrollable-row {
   display: flex;
@@ -666,21 +689,6 @@ body.dark .scrollable-row::-webkit-scrollbar-track {
   min-width: 0; /* Crucial for flexbox to allow text truncation */
 }
 
-.song.is-playing {
-    background: var(--accent);
-    color: white;
-    border-color: var(--accent-light);
-    position: relative;
-}
-
-.song.is-playing small::before {
-    content: '\f028'; /* volume-high icon */
-    font-family: 'Font Awesome 7 Free';
-    font-weight: 900;
-    margin-right: 0.5rem;
-    color: var(--accent-light);
-    animation: pulse 1.5s infinite;
-}
 .song strong, .playlist strong, .album strong, .artist strong {
   font-weight: 600;
   font-size: 1rem;
@@ -729,9 +737,23 @@ body.dark .song-list::-webkit-scrollbar-track {
 /* Album grid */
 .search-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  /* Responsive grid: more columns on wider screens */
+  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
   gap: 1.5rem;
 }
+
+@media (min-width: 1200px) {
+  .search-grid {
+    grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  }
+}
+
+@media (min-width: 1600px) {
+  .search-grid {
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  }
+}
+
 .search-results-wrapper .horizontal-section .album,
 .search-results-wrapper .horizontal-section .artist {
   flex-direction: column; /* Keep column layout for horizontal scroll */
@@ -1226,6 +1248,33 @@ input:checked + .slider:before {
 
 .error {
   color: #ff8a80; /* A soft red for errors */
+}
+
+.loading-more {
+  text-align: center;
+  padding: 1.5rem;
+  font-style: italic;
+}
+/* --- Sorting Controls --- */
+.sort-controls {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.sort-controls label {
+  font-size: 0.9rem;
+  color: var(--text-secondary);
+}
+
+.sort-controls select {
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid var(--glass-border);
+  border-radius: 8px;
+  padding: 0.5rem 0.8rem;
+  color: var(--text-primary);
+  font-size: 0.9rem;
+  cursor: pointer;
 }
 
 /* --- Details Page Redesign (Playlist, Album, Artist) --- */

@@ -75,22 +75,76 @@
           </header>
         </div>
         <div id="searchResultsContainer" class="search-results-wrapper">
-            <section class="horizontal-section">
-                <h2>Songs</h2>
-                <div id="songList" class="grid-container scrollable-row"></div>
-            </section>
-            <section class="horizontal-section">
-                <h2>Albums</h2>
-                <div id="albumSearchResults" class="grid-container scrollable-row"></div>
-            </section>
-            <section class="horizontal-section">
-                <h2>Playlists</h2>
-                <div id="playlistSearchResults" class="grid-container scrollable-row"></div>
-            </section>
-            <section class="horizontal-section">
-                <h2>Artists</h2>
-                <div id="artistSearchResults" class="grid-container scrollable-row"></div>
-            </section>
+          <section class="horizontal-section">
+            <div class="section-header">
+              <h2>Songs</h2>
+              <button class="view-all-btn" onclick="MTUNE.navigation.showAllCategory('songs')">View All</button>
+            </div>
+            <div id="songList" class="grid-container scrollable-row"></div>
+          </section>
+          <section class="horizontal-section">
+            <div class="section-header">
+              <h2>Albums</h2>
+              <button class="view-all-btn" onclick="MTUNE.navigation.showAllCategory('albums')">View All</button>
+            </div>
+            <div id="albumSearchResults" class="grid-container scrollable-row"></div>
+          </section>
+          <section class="horizontal-section">
+            <div class="section-header">
+              <h2>Playlists</h2>
+              <button class="view-all-btn" onclick="MTUNE.navigation.showAllCategory('playlists')">View All</button>
+            </div>
+            <div id="playlistSearchResults" class="grid-container scrollable-row"></div>
+          </section>
+          <section class="horizontal-section">
+            <div class="section-header">
+              <h2>Artists</h2>
+              <button class="view-all-btn" onclick="MTUNE.navigation.showAllCategory('artists')">View All</button>
+            </div>
+            <div id="artistSearchResults" class="grid-container scrollable-row"></div>
+          </section>
+        </div>
+      </section>
+
+      <section id="search-songs-all" class="content-section">
+        <div class="details-page-wrapper">
+          <button class="details-back-btn" onclick="MTUNE.navigation.goBack()"><i class="fas fa-arrow-left"></i></button>
+          <div class="section-header">
+            <h1 id="allSongsHeader">Song Results</h1>
+            <div class="sort-controls">
+              <label for="songSort">Sort by:</label>
+              <select id="songSort" onchange="MTUNE.utils.sortSongList('allSongsList', this.value)">
+                <option value="default">Default</option>
+                <option value="name">Name (A-Z)</option>
+                <option value="duration">Duration</option>
+              </select>
+            </div>
+          </div>
+          <div id="allSongsList" class="song-list"></div>
+        </div>
+      </section>
+
+      <section id="search-albums-all" class="content-section">
+        <div class="details-page-wrapper">
+          <button class="details-back-btn" onclick="MTUNE.navigation.goBack()"><i class="fas fa-arrow-left"></i></button>
+          <h1 id="allAlbumsHeader">Album Results</h1>
+          <div id="allAlbumsGrid" class="search-grid"></div>
+        </div>
+      </section>
+
+      <section id="search-playlists-all" class="content-section">
+        <div class="details-page-wrapper">
+          <button class="details-back-btn" onclick="MTUNE.navigation.goBack()"><i class="fas fa-arrow-left"></i></button>
+          <h1 id="allPlaylistsHeader">Playlist Results</h1>
+          <div id="allPlaylistsGrid" class="search-grid"></div>
+        </div>
+      </section>
+
+      <section id="search-artists-all" class="content-section">
+        <div class="details-page-wrapper">
+          <button class="details-back-btn" onclick="MTUNE.navigation.goBack()"><i class="fas fa-arrow-left"></i></button>
+          <h1 id="allArtistsHeader">Artist Results</h1>
+          <div id="allArtistsGrid" class="search-grid"></div>
         </div>
       </section>
 
