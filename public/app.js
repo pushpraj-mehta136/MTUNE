@@ -655,9 +655,19 @@ const MTUNE = {
     },
     updateInfo(song) {
       const title = MTUNE.render._decode(song.name || song.title || 'Unknown Title');
-      MTUNE.ui.currentSongTitle.title = title; // Add title for tooltip
-      MTUNE.ui.currentSongTitle.innerHTML = `<strong><span>${title}</span></strong>`;
+      const titleContainer = MTUNE.ui.currentSongTitle;
+      titleContainer.title = title; // Add title for tooltip
+      titleContainer.innerHTML = `<strong><span>${title}</span></strong>`;
       const artist = MTUNE.render._decode(song.primaryArtists || song.artists?.primary?.map(a => a.name).join(', ') || 'Unknown Artist');
+
+      // Check for title overflow and apply marquee class if needed
+      const titleElement = titleContainer.querySelector('strong');
+      // Use a timeout to allow the DOM to update before checking dimensions
+      setTimeout(() => {
+        const isOverflowing = titleElement.scrollWidth > titleElement.clientWidth;
+        titleContainer.classList.toggle('marquee', isOverflowing);
+      }, 100);
+
       MTUNE.ui.currentSongArtist.textContent = artist;
       MTUNE.ui.currentSongArtist.title = artist; // Add title for tooltip
       MTUNE.ui.currentSongImg.src = MTUNE.render._getImageUrl(song.image);
