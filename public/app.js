@@ -168,14 +168,12 @@ const MTUNE = {
     this.ui.audioPlayer.addEventListener('pause', () => {
         this.state.isPlaying = false;
         this.player.updatePlayPauseIcons(false);
-        this.player.updateProgressBar();
     });
     this.ui.progressBar.addEventListener('input', () => this.player.seek());
     this.ui.nowPlayingProgressBar.addEventListener('input', (e) => this.player.seek(e.target));
     this.ui.searchBar.addEventListener('keypress', e => { if (e.key === "Enter") this.navigation.triggerSearch(); });
     document.addEventListener('click', (e) => { if (!e.target.closest('.search-input-container')) this.ui.searchSuggestions.classList.remove('active'); });
     window.addEventListener('beforeunload', () => this.utils.savePlaybackState());
-    this.ui.mainContent.addEventListener('scroll', (e) => this.utils.handleInfiniteScroll(e));
     this.ui.volumeSlider.addEventListener('input', (e) => this.player.setVolume(e.target.value));
     this.ui.nowPlayingVolumeSlider.addEventListener('input', (e) => this.player.setVolume(e.target.value));
     this.utils.setupSleepTimer();
@@ -206,8 +204,8 @@ const MTUNE = {
     this.utils.addNowPlayingGestures();
     // Add context menu listeners
     this.utils.addContextMenuHandlers();
-
-    // Add ripple effect to all buttons
+    
+    // Add queue interaction handlers
     this.utils.addQueueDragHandlers();
     this.utils.addQueueInteractionHandlers();
     document.addEventListener('click', this.utils.applyRippleEffect);
@@ -296,8 +294,14 @@ const MTUNE = {
       div.className = 'song';
 
       div.dataset.type = 'song';
-      // Add a click handler to the entire card to play the song
+      // Add a click handler to the entire card
       div.onclick = (event) => {
+        // For desktop queue items, left-click should open the context menu.
+        const inQueue = event.target.closest('#queueList');
+        if (inQueue && window.innerWidth > 768) {
+            MTUNE.utils.showSongContextMenu(event, song.id);
+            return;
+        }
         // Ensure we don't trigger this if a button inside the card was clicked
         if (event.target.closest('button')) return;
         MTUNE.player.playSongFromCard(event, song.id);
@@ -325,13 +329,15 @@ const MTUNE = {
       if (inQueue) {
           div.draggable = true;
           div.dataset.songId = song.id;
+          // Add a class to distinguish queue songs for styling
+          div.classList.add('in-queue');
       }
 
       const durationSpan = document.createElement('span');
       durationSpan.className = 'song-duration';
 	  durationSpan.textContent = MTUNE.player.formatTime(song.duration || 0);
       const contextBtn = inQueue 
-        ? this._createButton('options-btn remove-from-queue-btn', `MTUNE.utils.removeFromQueue(event, '${song.id}')`, 'Remove from queue', 'fas fa-times') : null;
+        ? this._createButton('options-btn remove-from-queue-btn', `MTUNE.utils.removeFromQueue(event, '${song.id}')`, 'Remove from queue', 'fas fa-times') : this._createButton('options-btn context-menu-btn', `MTUNE.utils.showSongBottomSheet('${song.id}', event)`, 'More options', 'fas fa-ellipsis-v');
       const playBtn = this._createButton('play-btn', `MTUNE.player.playSongFromCard(event, '${song.id}')`, `Play ${this._decode(song.name || song.title)}`, 'fas fa-play');
       img.insertAdjacentElement('afterend', playBtn);
       div.append(img, infoDiv, durationSpan);
@@ -1106,79 +1112,58 @@ const MTUNE = {
 
       search.isLoading = true;
 
-      let songData, albumData, playlistData, artistData;
-
-      if (isViewAllPage) {
-        // Fetch only the specific category for the "View All" page
-        const page = search[category].currentPage;
-        const data = await MTUNE.api._fetch(`/search/${category}?query=${encodeURIComponent(search.query)}&page=${page}&limit=50`);
-        if (category === 'songs') songData = data;
-        if (category === 'albums') albumData = data;
-        if (category === 'playlists') playlistData = data;
-        if (category === 'artists') artistData = data;
-      } else {
-        // Fetch all categories in parallel for the main search page
-        [songData, albumData, playlistData, artistData] = await Promise.all([
-          MTUNE.api._fetch(`/search/songs?query=${encodeURIComponent(search.query)}&page=${search.songs.currentPage}&limit=50`),
-          MTUNE.api._fetch(`/search/albums?query=${encodeURIComponent(search.query)}&page=${search.albums.currentPage}&limit=24`),
-          MTUNE.api._fetch(`/search/playlists?query=${encodeURIComponent(search.query)}&page=${search.playlists.currentPage}&limit=24`),
-          MTUNE.api._fetch(`/search/artists?query=${encodeURIComponent(search.query)}&page=${search.artists.currentPage}&limit=24`)
-        ]);
-      }
-      if (isNewSearch && !isViewAllPage) {
-          // Populate songs
-          search.songs.results = songData?.data?.results || [];
-          search.songs.total = songData?.data?.total || 0;
-          MTUNE.render.populate(songList, search.songs.results, MTUNE.render.discoverCard, 'No songs found.', 'Song search failed.');
-          if (search.songs.results.length > 0) MTUNE.state.songQueue = search.songs.results;
-
-          // Populate albums
-          search.albums.results = albumData?.data?.results || [];
-          search.albums.total = albumData?.data?.total || 0;
-          MTUNE.render.populate(albumSearchResults, search.albums.results, MTUNE.render.discoverCard, 'No albums found.', 'Album search failed.');
-
-          // Populate playlists
-          search.playlists.results = playlistData?.data?.results || [];
-          search.playlists.total = playlistData?.data?.total || 0;
-          MTUNE.render.populate(playlistSearchResults, search.playlists.results, MTUNE.render.discoverCard, 'No playlists found.', 'Playlist search failed.');
-
-          // Populate artists
-          search.artists.results = artistData?.data?.results || [];
-          search.artists.total = artistData?.data?.total || 0;
-          MTUNE.render.populate(artistSearchResults, search.artists.results, MTUNE.render.timelineCard, 'No artists found.', 'Artist search failed.');
-      } else { // This block is for infinite scroll
-        const appendResults = (data, category, container, renderer) => {
-            if (data?.data?.results) {
-                search[category].results.push(...data.data.results);
-                if (category === 'songs') {
-                    MTUNE.state.songQueue.push(...data.data.results);
-                }
-                MTUNE.render.append(container, data.data.results, renderer);
-            }
-        };
+      try {
+        let songData, albumData, playlistData, artistData;
 
         if (isViewAllPage) {
-            const renderMap = {
-                songs: { container: MTUNE.ui.allSongsList, renderer: MTUNE.render.songCard },
-                albums: { container: MTUNE.ui.allAlbumsGrid, renderer: MTUNE.render.discoverCard },
-                playlists: { container: MTUNE.ui.allPlaylistsGrid, renderer: MTUNE.render.discoverCard },
-                artists: { container: MTUNE.ui.allArtistsGrid, renderer: MTUNE.render.timelineCard }
-            };
-            const currentData = { songs: songData, albums: albumData, playlists: playlistData, artists: artistData }[category];
-            appendResults(currentData, category, renderMap[category].container, renderMap[category].renderer);
+          // Fetch only the specific category for the "View All" page
+          const page = search[category].currentPage;
+          const data = await MTUNE.api._fetch(`/search/${category}?query=${encodeURIComponent(search.query)}&page=${page}&limit=50`);
+          if (category === 'songs') songData = data;
+          if (category === 'albums') albumData = data;
+          if (category === 'playlists') playlistData = data;
+          if (category === 'artists') artistData = data;
         } else {
-            appendResults(songData, 'songs', songList, MTUNE.render.discoverCard);
-            appendResults(albumData, 'albums', albumSearchResults, MTUNE.render.discoverCard);
-            appendResults(playlistData, 'playlists', playlistSearchResults, MTUNE.render.discoverCard);
-            appendResults(artistData, 'artists', artistSearchResults, MTUNE.render.timelineCard);
+          // Fetch all categories in parallel for the main search page
+          [songData, albumData, playlistData, artistData] = await Promise.all([
+            MTUNE.api._fetch(`/search/songs?query=${encodeURIComponent(search.query)}&page=${search.songs.currentPage}&limit=50`),
+            MTUNE.api._fetch(`/search/albums?query=${encodeURIComponent(search.query)}&page=${search.albums.currentPage}&limit=24`),
+            MTUNE.api._fetch(`/search/playlists?query=${encodeURIComponent(search.query)}&page=${search.playlists.currentPage}&limit=24`),
+            MTUNE.api._fetch(`/search/artists?query=${encodeURIComponent(search.query)}&page=${search.artists.currentPage}&limit=24`)
+          ]);
         }
-      }
+        if (isNewSearch && !isViewAllPage) {
+            // Populate songs
+            search.songs.results = songData?.data?.results || [];
+            // Populate albums
+            search.albums.results = albumData?.data?.results || [];
+            search.albums.total = albumData?.data?.total || 0;
+            MTUNE.render.populate(albumSearchResults, search.albums.results, MTUNE.render.discoverCard, 'No albums found.', 'Album search failed.');
 
-      search.songs.currentPage++;
-      search.albums.currentPage++;
-      search.playlists.currentPage++;
-      search.artists.currentPage++;
-      search.isLoading = false;
+            // Populate playlists
+            search.playlists.results = playlistData?.data?.results || [];
+            search.playlists.total = playlistData?.data?.total || 0;
+            MTUNE.render.populate(playlistSearchResults, search.playlists.results, MTUNE.render.discoverCard, 'No playlists found.', 'Playlist search failed.');
+
+            // Populate artists
+            search.artists.results = artistData?.data?.results || [];
+            search.artists.total = artistData?.data?.total || 0;
+            MTUNE.render.populate(artistSearchResults, search.artists.results, MTUNE.render.timelineCard, 'No artists found.', 'Artist search failed.');
+            search.songs.total = songData?.data?.total || 0;
+            MTUNE.render.populate(songList, search.songs.results, MTUNE.render.discoverCard, 'No songs found.', 'Song search failed.');
+            if (search.songs.results.length > 0) MTUNE.state.songQueue = search.songs.results;
+        }
+      } catch (error) {
+          console.error("Search failed:", error);
+          MTUNE.utils.showNotification("Search failed. Please try again.", "error");
+          // Still render whatever we might have gotten before the error
+          MTUNE.render.populate(songList, search.songs.results, MTUNE.render.discoverCard, 'No songs found.', 'Song search failed.');
+          MTUNE.render.populate(albumSearchResults, search.albums.results, MTUNE.render.discoverCard, 'No albums found.', 'Album search failed.');
+          MTUNE.render.populate(playlistSearchResults, search.playlists.results, MTUNE.render.discoverCard, 'No playlists found.', 'Playlist search failed.');
+          MTUNE.render.populate(artistSearchResults, search.artists.results, MTUNE.render.timelineCard, 'No artists found.', 'Artist search failed.');
+      } finally {
+          search.isLoading = false;
+      }
     },
 
     showAllCategory(category) {
@@ -1624,7 +1609,7 @@ const MTUNE = {
             // Swipe from left to right (to show options)
             else if (deltaX > SWIPE_THRESHOLD) {
                 this.vibrate();
-                this.showSongBottomSheet(songId);
+                this.showSongBottomSheet(songId, event);
                 // Reset position after showing menu
                 swipedItem.style.transform = 'translateX(0)';
             } else {
@@ -1707,36 +1692,6 @@ const MTUNE = {
             touchStartX = 0; // Reset
         }, { passive: true });
     },
-    handleInfiniteScroll(event) {
-      const element = event.target;
-      const { search, navigation } = MTUNE.state;
-      const isSearchPage = navigation.currentSection === 'search' || (navigation.currentSection.startsWith('search-') && navigation.currentSection.endsWith('-all'));
-
-      // Trigger when user is 350px from the bottom
-      if (isSearchPage && !search.isLoading && element.scrollHeight - element.scrollTop - element.clientHeight < 350) {
-          const category = navigation.currentSection.startsWith('search-') ? navigation.currentSection.split('-')[1] : null;
-          
-          let container;
-          if (category) {
-              const containerMap = {
-                  songs: MTUNE.ui.allSongsList,
-                  albums: MTUNE.ui.allAlbumsGrid,
-                  playlists: MTUNE.ui.allPlaylistsGrid,
-                  artists: MTUNE.ui.allArtistsGrid
-              };
-              container = containerMap[category];
-          } else {
-              // On the main search page, we might want to load all, or just one.
-              // For simplicity, let's assume we load all. We'll add the indicator to the main wrapper.
-              container = document.getElementById('searchResultsContainer');
-          }
-
-          if (container && !container.querySelector('.loading-more')) {
-              container.insertAdjacentHTML('beforeend', '<div class="loading-more">Loading more...</div>');
-          }
-          MTUNE.navigation.search(false);
-      }
-    },
     showSongContextMenu(event, songId, options = {}) {
         event.stopPropagation();
         event.preventDefault();
@@ -1778,20 +1733,22 @@ const MTUNE = {
         // Use a timeout to allow the element to be in the DOM before adding the class
         setTimeout(() => menu.classList.add('active'), 10);
     
-        // Add a single listener to close the menu
+        // Add a single listener to close the menu on the next click
         document.addEventListener('click', this.removeContextMenu, { once: true });
     },
-    showSongBottomSheet(songId) {
-        const song = MTUNE.state.songQueue.find(s => s.id === songId) || 
+    showSongBottomSheet(songId, event) {
+        const song = MTUNE.state.songQueue.find(s => s.id === songId) ||
                      MTUNE.state.history.find(s => s.id === songId) || 
                      MTUNE.state.favourites.find(s => s.id === songId);
         if (!song) return;
 
         const sheetContent = document.querySelector('#bottomSheet .bottom-sheet-content');
+        if (!sheetContent) return;
         const isFavourited = MTUNE.utils.isFavourited(songId);
 
         const close = () => this.hideBottomSheet();
 
+        // Using outerHTML of a rendered song card for the header
         sheetContent.innerHTML = `
             <ul>
                 <li onclick="MTUNE.utils.playNext('${songId}'); MTUNE.utils.hideBottomSheet()"><i class="fas fa-level-up-alt"></i> Play Next</li>

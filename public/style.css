@@ -657,6 +657,11 @@ body.dark .scrollable-row::-webkit-scrollbar-track {
   margin-left: auto; /* Pushes button to the right */
   flex-shrink: 0; /* Prevent button from shrinking */
 }
+.song .remove-from-queue-btn {
+    display: none; /* Hidden by default */
+    margin-left: auto;
+    flex-shrink: 0;
+}
 
 .song-duration {
     font-size: 0.9rem;
@@ -1763,6 +1768,11 @@ input:checked + .slider:before {
         display: none;
     }
 
+    /* Show remove button on desktop inside queue */
+    .queue-container .song .remove-from-queue-btn {
+        display: flex;
+    }
+
 /* --- Expanded Now Playing View --- */
 .now-playing-view {
   position: fixed;
@@ -2382,6 +2392,11 @@ input:checked + .slider:before {
     transform: translateX(-100%);
     opacity: 0;
 }
+.song.is-swiping {
+    transition: none; /* Disable transition during active swipe */
+}
+
+
 
 
 @media (max-width: 768px) {
