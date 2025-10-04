@@ -57,8 +57,8 @@ const MTUNE = {
     searchAll: (query) => MTUNE.api._fetch(`/search?query=${encodeURIComponent(query)}`),
     getSongDetails: (id) => MTUNE.api._fetch(`/songs/${id}`),
     getPlaylistDetails: (id, page = 1, limit = 50) => MTUNE.api._fetch(`/playlists?id=${id}&page=${page}&limit=${limit}`),
-    getAlbumDetails: (id) => MTUNE.api._fetch(`/albums?id=${id}`),
-    getArtistDetails: (id) => MTUNE.api._fetch(`/artists?id=${id}`),
+    getAlbumDetails: (id) => MTUNE.api._fetch(`/albums/${id}`),
+    getArtistDetails: (id) => MTUNE.api._fetch(`/artists/${id}`),
     getArtistSongs: (id, page) => MTUNE.api._fetch(`/artists/${id}/songs?page=${page}&limit=50`),
     getSongSuggestions: (songId, limit = 10) => MTUNE.api._fetch(`/songs/${songId}/suggestions?limit=${limit}`),
     getCharts: () => MTUNE.api._fetch('/charts'),
@@ -313,10 +313,12 @@ const MTUNE = {
 
       const infoDiv = document.createElement('div');
 	  const strong = document.createElement('strong');
+      strong.title = this._decode(song.name || song.title); // Add title for tooltip
       const span = document.createElement('span');
       span.textContent = this._decode(song.name || song.title);
       strong.appendChild(span);
       const small = document.createElement('small');
+      small.title = this._decode(song.primaryArtists || song.artists?.primary?.map(a => a.name).join(', ') || 'Unknown Artist'); // Add title for tooltip
       small.textContent = this._decode(song.primaryArtists || song.artists?.primary?.map(a => a.name).join(', ') || 'Unknown Artist');
       infoDiv.append(strong, small);
 
@@ -423,7 +425,11 @@ const MTUNE = {
         return;
       }
       container.innerHTML = '';
-      items.forEach(item => container.appendChild(cardRenderer.call(MTUNE.render, item)));
+      items.forEach((item, index) => {
+        const card = cardRenderer.call(MTUNE.render, item);
+        card.style.setProperty('--animation-order', index);
+        container.appendChild(card);
+      });
     },
     append(container, items, cardRenderer) {
       const loading = container.querySelector('.loading, .error');
@@ -652,8 +658,11 @@ const MTUNE = {
     },
     updateInfo(song) {
       const title = MTUNE.render._decode(song.name || song.title || 'Unknown Title');
+      MTUNE.ui.currentSongTitle.title = title; // Add title for tooltip
       MTUNE.ui.currentSongTitle.innerHTML = `<strong><span>${title}</span></strong>`;
-      MTUNE.ui.currentSongArtist.textContent = MTUNE.render._decode(song.primaryArtists || song.artists?.primary?.map(a => a.name).join(', ') || 'Unknown Artist');
+      const artist = MTUNE.render._decode(song.primaryArtists || song.artists?.primary?.map(a => a.name).join(', ') || 'Unknown Artist');
+      MTUNE.ui.currentSongArtist.textContent = artist;
+      MTUNE.ui.currentSongArtist.title = artist; // Add title for tooltip
       MTUNE.ui.currentSongImg.src = MTUNE.render._getImageUrl(song.image);
       MTUNE.ui.nowPlayingLikeBtn.classList.toggle('active', MTUNE.utils.isFavourited(song.id));
       MTUNE.ui.likeBtn.classList.toggle('active', MTUNE.utils.isFavourited(song.id));
@@ -1397,13 +1406,12 @@ const MTUNE = {
         MTUNE.render._renderMessage(artistDetailsHeader, '');
         MTUNE.render._renderMessage(artistTopSongs, 'Loading top songs...');
 
-        const [artistDetailsData, artistSongsData] = await Promise.all([
-            MTUNE.api.getArtistDetails(artistId),
-            MTUNE.api.getArtistSongs(artistId, 1) // Fetch first page of songs
-        ]);
+        // Fetch artist details which includes top songs
+        const artistDetailsData = await MTUNE.api.getArtistDetails(artistId);
 
         const details = artistDetailsData?.data;
-        const songs = artistSongsData?.data?.songs;
+        // The top songs are now part of the main artist details response
+        const songs = details?.topSongs;
 
         if (details) {
             MTUNE.render.artistHeader(details);
@@ -1826,7 +1834,7 @@ const MTUNE = {
         const isApiPlaylist = !playlistId.startsWith('user_');
 
         const saveOption = isApiPlaylist ? `<li onclick="MTUNE.utils.savePlaylist('${playlistId}')"><i class="fas fa-bookmark"></i> Save to Library</li>` : '';
-        const deleteOption = playlist ? `<li onclick="MTUNE.utils.deletePlaylist('${playlistId}'); MTUNE.utils.removeContextMenu();"><i class="fas fa-trash"></i> Delete Playlist</li>` : '';
+        const deleteOption = playlist ? `<li onclick="MTUNE.utils.deletePlaylist('${playlistId}')"><i class="fas fa-trash"></i> Delete Playlist</li>` : '';
         const renameOption = playlist ? `<li onclick="MTUNE.utils.renamePlaylist('${playlistId}'); MTUNE.utils.removeContextMenu();"><i class="fas fa-pencil-alt"></i> Rename Playlist</li>` : '';
 
         const menuItems = `
@@ -1840,7 +1848,11 @@ const MTUNE = {
 
         if (options.isMobile) {
             const sheetContent = document.querySelector('#bottomSheet .bottom-sheet-content');
-            sheetContent.innerHTML = menuItems.replace(/MTUNE.utils.(.*?)\((.*?)\)/g, "MTUNE.utils.$1($2); MTUNE.utils.hideBottomSheet()");
+            sheetContent.innerHTML = menuItems
+                .replace(/MTUNE.utils.removeContextMenu\(\);/g, '')
+                .replace(/onclick="/g, 'onclick="')
+                .replace(/;\s*"/g, '; MTUNE.utils.hideBottomSheet()"')
+                .replace(/"/g, '"');
             document.getElementById('bottomSheet').classList.add('active');
             return;
         }
@@ -2300,17 +2312,21 @@ const MTUNE = {
     async savePlaylist(playlistId) {
         if (MTUNE.state.savedPlaylists.some(p => p.id === playlistId)) {
             MTUNE.utils.showNotification('This playlist is already in your library.');
+            MTUNE.utils.removeContextMenu();
             return;
         }
         const playlistData = await MTUNE.api.getPlaylistDetails(playlistId);
         if (playlistData?.data) {
             MTUNE.state.savedPlaylists.unshift(playlistData.data);
-            this.saveSavedPlaylists();
+            this.saveSavedPlaylists(); // This function saves to localStorage
             MTUNE.utils.showNotification('Playlist saved to library', 'success');
+            // If on the playlist details page, update the button state
+            this.toggleSavePlaylist(playlistId, true);
         }
+        MTUNE.utils.removeContextMenu();
     },
-    toggleSavePlaylist(playlistId) {
-        const isSaved = MTUNE.state.savedPlaylists.some(p => p.id === playlistId);
+    toggleSavePlaylist(playlistId, forceSave = null) {
+        const isSaved = forceSave !== null ? !forceSave : MTUNE.state.savedPlaylists.some(p => p.id === playlistId);
         if (isSaved) {
             // Unsave it
             MTUNE.state.savedPlaylists = MTUNE.state.savedPlaylists.filter(p => p.id !== playlistId);

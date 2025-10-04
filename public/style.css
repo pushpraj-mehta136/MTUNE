@@ -36,6 +36,17 @@
   }
 }
 
+@keyframes subtle-scale-in {
+    from {
+        opacity: 0;
+        transform: scale(0.95);
+    }
+    to {
+        opacity: 1;
+        transform: scale(1);
+    }
+}
+
 /* --- Custom Font: Coves --- */
 /* Please place your font files in a 'public/fonts/' directory */
 @font-face {
@@ -132,6 +143,7 @@ html, body {
   overflow: hidden;
   user-select: none; /* Disable text selection globally */
   -webkit-user-select: none; /* For Safari */
+  transition: background 1s ease-in-out;
 }
 
 /* App container */
@@ -413,12 +425,13 @@ body.dark .search-suggestions::-webkit-scrollbar-thumb {
 .content-section {
   display: none;
   flex-direction: column;
-  gap: 1.5rem;
   position: relative;
 }
 .content-section.active {
     display: flex;
-    animation: tab-switch 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+    /* Use a more modern fade-in animation */
+    animation: fadeIn 0.5s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+    gap: 1.5rem;
 }
 .content-section[id*="-details"].active {
     animation: slideInFromRight 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
@@ -516,12 +529,13 @@ body.dark .scrollable-row::-webkit-scrollbar-track {
   display: flex;
   flex-direction: column;
   width: 240px;
-  flex-shrink: 0;
-  transition: var(--transition);
+  flex-shrink: 0; 
+  transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  animation: subtle-scale-in 0.5s ease-out both;
 }
 
-.discover-card:hover {
-  transform: translateY(-4px);
+.discover-card:hover, .song:hover, .playlist:hover, .album:hover, .artist:hover {
+  transform: scale(1.03) translateY(-4px);
 }
 
 .search-grid .discover-card {
@@ -573,20 +587,11 @@ body.dark .scrollable-row::-webkit-scrollbar-track {
   display: flex;
   gap: 1rem;
   cursor: pointer;
-  user-select: none;
-  transition: var(--transition);
+  user-select: none; 
+  transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.3s ease, border-color 0.3s ease;
   align-items: center;
   box-shadow: var(--glass-shadow);
   padding: 1rem;
-}
-.scrollable-row .song, .scrollable-row .playlist, .scrollable-row .album, .scrollable-row .artist {
-    width: 240px; /* Consistent width with discover cards */
-    flex-shrink: 0;
-}
-
-
-.song:hover, .playlist:hover, .album:hover, .artist:hover, .discover-card:hover {
-  transform: translateY(-5px);
   box-shadow: 0 10px 25px rgba(0, 0, 0, 0.15);
   border-color: var(--accent-light);
 }
@@ -700,6 +705,7 @@ body.dark .scrollable-row::-webkit-scrollbar-track {
   white-space: nowrap;
   display: block; /* Make it a block to contain the inner span */
   overflow: hidden; /* Hide the overflowing text */
+  text-overflow: ellipsis;
 }
 
 .song strong span, .playlist strong span, .album strong span, .artist strong span {
@@ -834,6 +840,7 @@ body.dark .song-list::-webkit-scrollbar-track {
   font-size: 1rem;
   white-space: nowrap;
   overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 #currentSongTitle strong span {
@@ -1016,7 +1023,7 @@ body.dark .song-list::-webkit-scrollbar-track {
 }
 
 #playPauseBtn:hover {
-  transform: scale(1.1);
+  transform: scale(1.05);
   filter: brightness(1.2);
 }
 .progress-container {
@@ -2435,11 +2442,11 @@ input:checked + .slider:before {
 }
 
 .context-menu li {
-    padding: 0.75rem 1.25rem;
+    padding: 0.8rem 1.25rem;
     cursor: pointer;
     display: flex;
     align-items: center;
-    gap: 0.75rem;
+    gap: 1rem;
     color: var(--text-primary);
     transition: background 0.2s ease, color 0.2s ease, transform 0.2s ease;
     opacity: 0;
@@ -2450,7 +2457,6 @@ input:checked + .slider:before {
 .context-menu li:hover {
     background: var(--accent);
     color: white;
-    transform: translateX(5px);
 }
 
 .context-menu.active li {
@@ -2495,12 +2501,12 @@ input:checked + .slider:before {
     display: flex;
     align-items: center;
     justify-content: center;
-    opacity: 0;
     pointer-events: none;
-    transition: opacity 0.3s ease;
+    transition: opacity 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .modal-overlay.active {
+    opacity: 1;
     opacity: 1;
     pointer-events: auto;
 }
@@ -2515,12 +2521,12 @@ input:checked + .slider:before {
     max-height: 80vh;
     display: flex;
     flex-direction: column;
-    transform: scale(0.95);
-    transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    transform: translateY(20px) scale(0.98);
+    transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.3s ease;
 }
 
 .modal-overlay.active .modal-content {
-    transform: scale(1);
+    transform: translateY(0) scale(1);
 }
 
 .modal-header {
